@@ -1,188 +1,40 @@
--- Create database
-CREATE DATABASE IF NOT EXISTS ebook_system;
-USE ebook_system;
-
--- Users table
-CREATE TABLE IF NOT EXISTS users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(50) UNIQUE NOT NULL,
-    email VARCHAR(100) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    full_name VARCHAR(100) NOT NULL,
-    address TEXT,
-    phone VARCHAR(20),
-    membership_type ENUM('free', 'premium') DEFAULT 'free',
-    registration_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-    is_active BOOLEAN DEFAULT TRUE
-);
-
--- Categories table
-CREATE TABLE IF NOT EXISTS categories (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    description TEXT,
-    icon VARCHAR(50)
-);
-
--- Books table
-CREATE TABLE IF NOT EXISTS books (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    title VARCHAR(255) NOT NULL,
-    author VARCHAR(255) NOT NULL,
-    description TEXT,
-    price DECIMAL(10,2) NOT NULL,
-    category_id INT,
-    file_path VARCHAR(255),
-    cover_image VARCHAR(255),
-    is_free BOOLEAN DEFAULT FALSE,
-    subscription_required BOOLEAN DEFAULT FALSE,
-    subscription_years INT DEFAULT 1,
-    featured BOOLEAN DEFAULT FALSE,
-    status ENUM('active', 'inactive') DEFAULT 'active',
-    created_date DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
--- Orders table
-CREATE TABLE IF NOT EXISTS orders (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    order_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-    total_amount DECIMAL(10,2) NOT NULL,
-    shipping_charges DECIMAL(10,2) DEFAULT 0,
-    format ENUM('pdf', 'hardcopy', 'cd') NOT NULL,
-    status ENUM('pending', 'confirmed', 'shipped', 'delivered', 'cancelled') DEFAULT 'pending',
-    payment_status ENUM('pending', 'paid', 'failed') DEFAULT 'pending',
-    shipping_address TEXT
-);
-
--- Order items table
-CREATE TABLE IF NOT EXISTS order_items (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    order_id INT NOT NULL,
-    book_id INT NOT NULL,
-    quantity INT DEFAULT 1,
-    price DECIMAL(10,2) NOT NULL
-);
-
--- Competitions table
-CREATE TABLE IF NOT EXISTS competitions (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    title VARCHAR(255) NOT NULL,
-    description TEXT,
-    type ENUM('essay', 'story') NOT NULL,
-    start_date DATETIME NOT NULL,
-    end_date DATETIME NOT NULL,
-    rules TEXT,
-    prizes TEXT,
-    status ENUM('upcoming', 'active', 'completed') DEFAULT 'upcoming'
-);
-
--- Competition submissions table
-CREATE TABLE IF NOT EXISTS competition_submissions (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    competition_id INT NOT NULL,
-    user_id INT NOT NULL,
-    title VARCHAR(255) NOT NULL,
-    content TEXT NOT NULL,
-    file_path VARCHAR(255),
-    submission_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-    is_winner BOOLEAN DEFAULT FALSE
-);
-
--- Winners table
-CREATE TABLE IF NOT EXISTS winners (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    competition_id INT NOT NULL,
-    user_id INT NOT NULL,
-    submission_id INT NOT NULL,
-    prize_details TEXT,
-    announced_date DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
--- Dealers table
-CREATE TABLE IF NOT EXISTS dealers (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    address TEXT NOT NULL,
-    phone VARCHAR(20),
-    email VARCHAR(100),
-    city VARCHAR(100),
-    is_active BOOLEAN DEFAULT TRUE
-);
-
--- Insert sample data
-INSERT INTO categories (name, description, icon) VALUES
-('Fiction', 'Novels and fictional stories', 'fas fa-book-open'),
-('Science', 'Scientific books and research', 'fas fa-flask'),
-('History', 'Historical accounts and analysis', 'fas fa-history'),
-('Romance', 'Romantic novels and stories', 'fas fa-heart'),
-('Mystery', 'Mystery and detective stories', 'fas fa-user-secret'),
-('Sci-Fi', 'Science fiction and fantasy', 'fas fa-rocket');
-
+-- Add more books to ensure each category has at least 4 books
 INSERT INTO books (title, author, description, price, category_id, cover_image, is_free, featured) VALUES
-('Pride and Prejudice', 'Jane Austen', 'A romantic novel of manners', 4.99, 1, 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 0, 1),
-('A Brief History of Time', 'Stephen Hawking', 'Exploring the nature of time and universe', 8.99, 2, 'https://images.unsplash.com/photo-1531901599638-a89bb60971a3?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 0, 1),
-('The Art of War', 'Sun Tzu', 'Ancient Chinese military treatise', 5.99, 3, 'https://images.unsplash.com/photo-1512820790803-83ca734da794?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 0, 1),
+('To Kill a Mockingbird', 'Harper Lee', 'A novel about racial inequality and moral growth', 7.99, 1, 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 0, 0),
+('The Great Gatsby', 'F. Scott Fitzgerald', 'A story of wealth, love, and the American Dream', 6.99, 1, 'https://images.unsplash.com/photo-1512820790803-83ca734da794?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 0, 0),
+('1984', 'George Orwell', 'Dystopian social science fiction novel', 6.49, 1, 'https://images.unsplash.com/photo-1516979187457-637abb4f9353?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 0, 0),
+('Brave New World', 'Aldous Huxley', 'Dystopian science fiction novel', 7.29, 1, 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 0, 0),
+
+('A Brief History of Time', 'Stephen Hawking', 'Exploring the nature of time and universe', 8.99, 2, 'https://images.unsplash.com/photo-1531901599638-a89bb60971a3?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 0, 0),
+('The Selfish Gene', 'Richard Dawkins', 'Evolutionary biology book', 9.99, 2, 'https://images.unsplash.com/photo-1531901599638-a89bb60971a3?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 0, 0),
+('Cosmos', 'Carl Sagan', 'Popular science book about cosmic evolution', 10.99, 2, 'https://images.unsplash.com/photo-1531901599638-a89bb60971a3?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 0, 0),
+('The Double Helix', 'James Watson', 'Personal account of DNA structure discovery', 8.49, 2, 'https://images.unsplash.com/photo-1531901599638-a89bb60971a3?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 0, 0),
+
+('The Art of War', 'Sun Tzu', 'Ancient Chinese military treatise', 5.99, 3, 'https://images.unsplash.com/photo-1512820790803-83ca734da794?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 0, 0),
+('Guns, Germs, and Steel', 'Jared Diamond', 'History of human societies', 12.99, 3, 'https://images.unsplash.com/photo-1512820790803-83ca734da794?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 0, 0),
+('A People History', 'Howard Zinn', 'American history from perspective of common people', 11.99, 3, 'https://images.unsplash.com/photo-1512820790803-83ca734da794?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 0, 0),
+('The Histories', 'Herodotus', 'Foundational work of history in Western literature', 9.99, 3, 'https://images.unsplash.com/photo-1512820790803-83ca734da794?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 0, 0),
+
 ('Romeo and Juliet', 'William Shakespeare', 'Tragic love story', 4.99, 4, 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 1, 0),
-('Sherlock Holmes', 'Arthur Conan Doyle', 'Detective stories collection', 6.99, 5, 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 0, 1),
-('1984', 'George Orwell', 'Dystopian social science fiction', 6.49, 6, 'https://images.unsplash.com/photo-1516979187457-637abb4f9353?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 0, 1);
+('Pride and Prejudice', 'Jane Austen', 'Romantic novel of manners', 5.99, 4, 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 0, 0),
+('Wuthering Heights', 'Emily Brontë', 'Tale of passionate but destructive love', 6.49, 4, 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 0, 0),
+('Jane Eyre', 'Charlotte Brontë', 'Coming-of-age story with romantic elements', 6.99, 4, 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 0, 0),
 
-INSERT INTO competitions (title, description, type, start_date, end_date, rules, prizes, status) VALUES
-('Summer Story Writing', 'Write an engaging short story for summer reading', 'story', '2024-06-01', '2024-08-31', 'Word limit: 2000-5000 words. Original content only.', 'First prize: $500 + Publication', 'active'),
-('Essay Competition 2024', 'Annual essay writing competition on technology impact', 'essay', '2024-09-01', '2024-10-31', 'Word limit: 1000-2000 words. Proper citations required.', 'Winners get book bundles and certificates', 'upcoming');
+('Sherlock Holmes', 'Arthur Conan Doyle', 'Detective stories collection', 6.99, 5, 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 0, 0),
+('The Maltese Falcon', 'Dashiell Hammett', 'Hard-boiled detective novel', 7.49, 5, 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 0, 0),
+('The Big Sleep', 'Raymond Chandler', 'Classic detective novel', 7.99, 5, 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 0, 0),
+('And Then There Were None', 'Agatha Christie', 'Mystery thriller novel', 6.79, 5, 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 0, 0),
 
+('Dune', 'Frank Herbert', 'Epic science fiction novel', 8.99, 6, 'https://images.unsplash.com/photo-1516979187457-637abb4f9353?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 0, 0),
+('Foundation', 'Isaac Asimov', 'Science fiction novel about future history', 7.99, 6, 'https://images.unsplash.com/photo-1516979187457-637abb4f9353?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 0, 0),
+('Neuromancer', 'William Gibson', 'Cyberpunk novel', 8.49, 6, 'https://images.unsplash.com/photo-1516979187457-637abb4f9353?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 0, 0),
+('The Left Hand of Darkness', 'Ursula K. Le Guin', 'Science fiction novel exploring gender themes', 7.79, 6, 'https://images.unsplash.com/photo-1516979187457-637abb4f9353?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 0, 0);
+
+-- Add more dealers
 INSERT INTO dealers (name, address, phone, email, city, is_active) VALUES
-('City Book Store', '123 Main Street, Downtown', '(555) 123-4567', 'citybooks@example.com', 'New York', 1),
-('Readers Paradise', '456 Oak Avenue, Westside', '(555) 987-6543', 'readers@example.com', 'Los Angeles', 1),
-('Knowledge Hub', '789 Pine Road, East End', '(555) 456-7890', 'knowledge@example.com', 'Chicago', 1);
-
--- Add admin role to users table
-ALTER TABLE users ADD COLUMN role ENUM('user', 'admin') DEFAULT 'user';
-
--- Create admin user (run this after creating the users table)
-INSERT INTO users (username, email, password, full_name, role) VALUES 
-('admin', 'admin@ebookemporium.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'System Administrator', 'admin');
-
--- Add more fields to books table for better management
-ALTER TABLE books ADD COLUMN stock_quantity INT DEFAULT 0;
-ALTER TABLE books ADD COLUMN pages INT;
-ALTER TABLE books ADD COLUMN publication_year YEAR;
-ALTER TABLE books ADD COLUMN isbn VARCHAR(20);
-
--- Create book reviews table
-CREATE TABLE IF NOT EXISTS book_reviews (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    book_id INT NOT NULL,
-    user_id INT NOT NULL,
-    rating INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
-    review_text TEXT,
-    review_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-    status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
-    FOREIGN KEY (book_id) REFERENCES books(id),
-    FOREIGN KEY (user_id) REFERENCES users(id)
-);
-
--- Create payments table
-CREATE TABLE IF NOT EXISTS payments (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    order_id INT NOT NULL,
-    payment_method ENUM('credit_card', 'debit_card', 'paypal', 'bank_transfer') NOT NULL,
-    amount DECIMAL(10,2) NOT NULL,
-    transaction_id VARCHAR(255),
-    payment_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-    status ENUM('pending', 'completed', 'failed', 'refunded') DEFAULT 'pending',
-    FOREIGN KEY (order_id) REFERENCES orders(id)
-);
-
--- Create subscriptions table
-CREATE TABLE IF NOT EXISTS subscriptions (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    book_id INT NOT NULL,
-    start_date DATE NOT NULL,
-    end_date DATE NOT NULL,
-    status ENUM('active', 'expired', 'cancelled') DEFAULT 'active',
-    created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    FOREIGN KEY (book_id) REFERENCES books(id)
-);
+('Book Haven', '789 Maple Street, Downtown', '(555) 234-5678', 'bookhaven@example.com', 'New York', 1),
+('Literary Corner', '321 Elm Avenue, Midtown', '(555) 345-6789', 'literarycorner@example.com', 'Los Angeles', 1),
+('Page Turner Books', '654 Birch Road, Uptown', '(555) 456-7890', 'pageturner@example.com', 'Chicago', 1),
+('Novel Ideas', '987 Cedar Lane, Downtown', '(555) 567-8901', 'novelideas@example.com', 'Houston', 1),
+('The Reading Nook', '159 Oak Street, Westside', '(555) 678-9012', 'readingnook@example.com', 'Phoenix', 1),
+('Storytellers Inc', '753 Pine Avenue, East End', '(555) 789-0123', 'storytellers@example.com', 'Philadelphia', 1);
