@@ -328,6 +328,67 @@ $cart = $_SESSION['cart'];
             gap: 15px;
         }
         
+        /* User Dropdown Styles */
+        .user-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .user-menu-toggle {
+            background: none;
+            border: none;
+            color: var(--text);
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background-color 0.3s;
+        }
+
+        .user-menu-toggle:hover {
+            background-color: rgba(139, 90, 43, 0.1);
+        }
+
+        .user-dropdown-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: var(--card-bg);
+            border: 1px solid var(--light);
+            border-radius: 4px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            min-width: 200px;
+            z-index: 1000;
+            display: none;
+            margin-top: 5px;
+        }
+
+        .user-dropdown-menu.show {
+            display: block;
+        }
+
+        .dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 15px;
+            color: var(--text);
+            text-decoration: none;
+            transition: background-color 0.3s;
+        }
+
+        .dropdown-item:hover {
+            background-color: var(--light);
+        }
+
+        .dropdown-divider {
+            height: 1px;
+            background-color: var(--light);
+            margin: 5px 0;
+        }
+        
         .search-bar {
             display: flex;
             position: relative;
@@ -859,6 +920,70 @@ $cart = $_SESSION['cart'];
             background-color: #c5b39d;
         }
         
+        /* Dealers Section */
+        .dealers {
+            padding: 80px 0;
+            width: 100%;
+        }
+        
+        .dealers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 25px;
+            justify-items: center;
+        }
+        
+        .dealer-card {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            padding: 25px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s;
+            border: 1px solid var(--light);
+            width: 100%;
+            max-width: 300px;
+        }
+        
+        .dealer-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        }
+        
+        .dealer-icon {
+            font-size: 36px;
+            margin-bottom: 15px;
+            color: var(--accent);
+        }
+        
+        .dealer-name {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--text);
+        }
+        
+        .dealer-city {
+            color: var(--text-light);
+            margin-bottom: 10px;
+        }
+        
+        .dealer-email {
+            color: var(--accent);
+            margin-bottom: 10px;
+        }
+        
+        .dealer-phone {
+            color: var(--text-light);
+            margin-bottom: 15px;
+        }
+        
+        .dealer-address {
+            color: var(--text-light);
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        
         /* About Section */
         .about {
             padding: 80px 0;
@@ -1199,6 +1324,42 @@ $cart = $_SESSION['cart'];
             text-decoration: underline;
         }
         
+        /* Competition Participation Modal */
+        .competition-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            display: none;
+        }
+
+        .competition-modal.active {
+            display: flex;
+        }
+
+        .competition-form {
+            background-color: var(--card-bg);
+            padding: 30px;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .competition-form h3 {
+            margin-bottom: 20px;
+            text-align: center;
+            color: var(--accent);
+        }
+        
         /* Responsive Design */
         @media (max-width: 1200px) {
             .container {
@@ -1391,30 +1552,11 @@ $cart = $_SESSION['cart'];
                     <li class="nav-item">
                         <a class="nav-link" href="#contact">Contact</a>
                     </li>
-                    <?php if(isLoggedIn()): ?>
-                        <?php if(isAdmin()): ?>
-                            <li class="nav-item">
-                                <a class="nav-link" href="admin.php">
-                                    <i class="fas fa-cog me-2"></i>Admin Panel
-                                </a>
-                            </li>
-                        <?php endif; ?>
+                    <?php if(isLoggedIn() && isAdmin()): ?>
                         <li class="nav-item">
-                            <a class="nav-link" href="dashboard.php">
-                                <i class="fas fa-user me-2"></i><?php echo $_SESSION['user_name']; ?>
+                            <a class="nav-link" href="admin.php">
+                                <i class="fas fa-cog me-2"></i>Admin Panel
                             </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="?logout=true">
-                                <i class="fas fa-sign-out-alt me-2"></i>Logout
-                            </a>
-                        </li>
-                    <?php else: ?>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#" id="login-link">Login</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#" id="register-link">Register</a>
                         </li>
                     <?php endif; ?>
                 </ul>
@@ -1431,10 +1573,37 @@ $cart = $_SESSION['cart'];
                     </button>
                     
                     <?php if(isLoggedIn()): ?>
+                        <!-- User Dropdown -->
+                        <div class="user-dropdown">
+                            <button class="user-menu-toggle" id="user-menu-toggle">
+                                <i class="fas fa-user-circle"></i>
+                                <?php echo $_SESSION['user_name']; ?>
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <div class="user-dropdown-menu" id="user-dropdown-menu">
+                                <a href="dashboard.php" class="dropdown-item">
+                                    <i class="fas fa-tachometer-alt"></i> Dashboard
+                                </a>
+                                <a href="profile.php" class="dropdown-item">
+                                    <i class="fas fa-user"></i> Profile
+                                </a>
+                                <a href="orders.php" class="dropdown-item">
+                                    <i class="fas fa-shopping-bag"></i> My Orders
+                                </a>
+                                <div class="dropdown-divider"></div>
+                                <a href="?logout=true" class="dropdown-item">
+                                    <i class="fas fa-sign-out-alt"></i> Logout
+                                </a>
+                            </div>
+                        </div>
+                        
                         <div class="cart-icon" id="cart-icon">
                             <i class="fas fa-shopping-cart"></i> 
                             <span class="cart-count"><?php echo count($cart); ?></span>
                         </div>
+                    <?php else: ?>
+                        <a class="nav-link" href="#" id="login-link">Login</a>
+                        <a class="nav-link" href="#" id="register-link">Register</a>
                     <?php endif; ?>
                 </div>
             </div>
@@ -1501,6 +1670,38 @@ $cart = $_SESSION['cart'];
                 Already have an account? <a href="#" id="switch-to-login">Login here</a>
             </div>
             <button class="close-auth" style="background: none; border: none; position: absolute; top: 10px; right: 15px; font-size: 20px; cursor: pointer;">&times;</button>
+        </div>
+    </div>
+
+    <!-- Competition Participation Modal -->
+    <div class="competition-modal" id="competition-modal">
+        <div class="competition-form">
+            <h3>Participate in Competition</h3>
+            <form id="competition-form" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="participant-name">Full Name</label>
+                    <input type="text" id="participant-name" name="participant_name" required>
+                </div>
+                <div class="form-group">
+                    <label for="participant-email">Email</label>
+                    <input type="email" id="participant-email" name="participant_email" required>
+                </div>
+                <div class="form-group">
+                    <label for="submission-title">Submission Title</label>
+                    <input type="text" id="submission-title" name="submission_title" required>
+                </div>
+                <div class="form-group">
+                    <label for="submission-content">Submission Content</label>
+                    <textarea id="submission-content" name="submission_content" rows="6" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="submission-file">Upload Document (PDF/DOC)</label>
+                    <input type="file" id="submission-file" name="submission_file" accept=".pdf,.doc,.docx" required>
+                </div>
+                <input type="hidden" id="competition-id" name="competition_id">
+                <button type="submit" class="btn" style="width: 100%;">Submit Entry</button>
+            </form>
+            <button class="close-competition" style="background: none; border: none; position: absolute; top: 10px; right: 15px; font-size: 20px; cursor: pointer;">&times;</button>
         </div>
     </div>
 
@@ -1633,7 +1834,7 @@ $cart = $_SESSION['cart'];
                                 </p>
                                 <div class="book-actions">
                                     <?php if(isLoggedIn()): ?>
-                                        <button class="add-to-cart">
+                                        <button class="add-to-cart participate-btn" data-competition-id="<?php echo $competition['id']; ?>">
                                             <i class="fas fa-trophy"></i> Participate
                                         </button>
                                     <?php else: ?>
@@ -1680,17 +1881,20 @@ $cart = $_SESSION['cart'];
         </section>
 
         <!-- Dealers Section -->
-        <section class="browse" id="dealers">
+        <section class="dealers" id="dealers">
             <div class="container">
                 <h2 class="section-title">Our Book Dealers</h2>
-                <div class="categories-grid">
+                <div class="dealers-grid">
                     <?php foreach($dealers as $dealer): ?>
-                        <div class="category-card">
-                            <div class="category-icon">
+                        <div class="dealer-card">
+                            <div class="dealer-icon">
                                 <i class="fas fa-store"></i>
                             </div>
-                            <div class="category-title"><?php echo htmlspecialchars($dealer['name']); ?></div>
-                            <small><?php echo htmlspecialchars($dealer['city']); ?></small>
+                            <h3 class="dealer-name"><?php echo htmlspecialchars($dealer['name']); ?></h3>
+                            <p class="dealer-city"><?php echo htmlspecialchars($dealer['city']); ?></p>
+                            <p class="dealer-email"><?php echo htmlspecialchars($dealer['email']); ?></p>
+                            <p class="dealer-phone"><?php echo htmlspecialchars($dealer['phone']); ?></p>
+                            <p class="dealer-address"><?php echo htmlspecialchars($dealer['address']); ?></p>
                         </div>
                     <?php endforeach; ?>
                 </div>
@@ -1863,6 +2067,16 @@ $cart = $_SESSION['cart'];
         const switchToLogin = document.getElementById('switch-to-login');
         const closeAuthButtons = document.querySelectorAll('.close-auth');
         const heroRegister = document.getElementById('hero-register');
+        
+        // User dropdown elements
+        const userMenuToggle = document.getElementById('user-menu-toggle');
+        const userDropdownMenu = document.getElementById('user-dropdown-menu');
+        
+        // Competition elements
+        const competitionModal = document.getElementById('competition-modal');
+        const competitionForm = document.getElementById('competition-form');
+        const participateButtons = document.querySelectorAll('.participate-btn');
+        const closeCompetitionButtons = document.querySelectorAll('.close-competition');
 
         // Book data from PHP
         const books = <?php echo json_encode($all_books); ?>;
@@ -1888,6 +2102,13 @@ $cart = $_SESSION['cart'];
                 if (!headerCollapse.contains(e.target) && e.target !== headerToggler && !headerToggler.contains(e.target)) {
                     headerCollapse.classList.remove('show');
                 }
+                
+                // Close user dropdown when clicking outside
+                if (userMenuToggle && userDropdownMenu) {
+                    if (!userDropdownMenu.contains(e.target) && e.target !== userMenuToggle && !userMenuToggle.contains(e.target)) {
+                        userDropdownMenu.classList.remove('show');
+                    }
+                }
             });
 
             // Theme toggle functionality
@@ -1912,31 +2133,35 @@ $cart = $_SESSION['cart'];
             }
 
             // Search functionality
-            searchButton.addEventListener('click', performSearch);
-            searchInput.addEventListener('input', performSearch);
+            if (searchButton) searchButton.addEventListener('click', performSearch);
+            if (searchInput) searchInput.addEventListener('input', performSearch);
             
             // Mobile search functionality
-            mobileSearchButton.addEventListener('click', performMobileSearch);
-            mobileSearchInput.addEventListener('input', performMobileSearch);
+            if (mobileSearchButton) mobileSearchButton.addEventListener('click', performMobileSearch);
+            if (mobileSearchInput) mobileSearchInput.addEventListener('input', performMobileSearch);
 
             // Cart functionality
             if (cartIcon) {
                 cartIcon.addEventListener('click', openCart);
             }
-            closeCart.addEventListener('click', closeCartModal);
+            if (closeCart) closeCart.addEventListener('click', closeCartModal);
             if (checkoutBtn) {
                 checkoutBtn.addEventListener('click', checkout);
             }
 
             // Mobile search toggle
-            mobileSearchToggle.addEventListener('click', function() {
-                mobileSearchPanel.classList.add('active');
-                mobileSearchInput.focus();
-            });
+            if (mobileSearchToggle) {
+                mobileSearchToggle.addEventListener('click', function() {
+                    mobileSearchPanel.classList.add('active');
+                    mobileSearchInput.focus();
+                });
+            }
             
-            closeMobileSearch.addEventListener('click', function() {
-                mobileSearchPanel.classList.remove('active');
-            });
+            if (closeMobileSearch) {
+                closeMobileSearch.addEventListener('click', function() {
+                    mobileSearchPanel.classList.remove('active');
+                });
+            }
             
             // Close mobile search when clicking outside
             document.addEventListener('click', function(e) {
@@ -1984,16 +2209,13 @@ $cart = $_SESSION['cart'];
             closeAuthButtons.forEach(button => {
                 button.addEventListener('click', closeAuthModals);
             });
-
-            // Close auth modals when clicking outside
-            document.addEventListener('click', function(e) {
-                if (e.target === loginModal) {
-                    closeAuthModals();
-                }
-                if (e.target === registerModal) {
-                    closeAuthModals();
-                }
-            });
+            
+            // User dropdown functionality
+            if (userMenuToggle) {
+                userMenuToggle.addEventListener('click', function() {
+                    userDropdownMenu.classList.toggle('show');
+                });
+            }
 
             // Add to cart buttons
             document.querySelectorAll('.add-to-cart[data-id]').forEach(button => {
@@ -2028,6 +2250,27 @@ $cart = $_SESSION['cart'];
                     removeFromCart(id);
                 });
             });
+
+            // Competition participation buttons
+            participateButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const competitionId = this.getAttribute('data-competition-id');
+                    showCompetitionModal(competitionId);
+                });
+            });
+            
+            // Close competition modal
+            closeCompetitionButtons.forEach(button => {
+                button.addEventListener('click', closeCompetitionModal);
+            });
+            
+            // Competition form submission
+            if (competitionForm) {
+                competitionForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    submitCompetitionEntry();
+                });
+            }
 
             // Smooth scrolling for navigation links
             document.querySelectorAll('a[href^="#"]').forEach(anchor => {
@@ -2070,6 +2313,40 @@ $cart = $_SESSION['cart'];
         function closeAuthModals() {
             loginModal.classList.remove('active');
             registerModal.classList.remove('active');
+        }
+        
+        // Competition modal functions
+        function showCompetitionModal(competitionId) {
+            document.getElementById('competition-id').value = competitionId;
+            competitionModal.classList.add('active');
+        }
+        
+        function closeCompetitionModal() {
+            competitionModal.classList.remove('active');
+        }
+        
+        function submitCompetitionEntry() {
+            const formData = new FormData(competitionForm);
+            
+            // In a real application, you would send this to the server
+            fetch('submit_competition.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Your competition entry has been submitted successfully!');
+                    closeCompetitionModal();
+                    competitionForm.reset();
+                } else {
+                    alert('Error submitting your entry. Please try again.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error submitting your entry. Please try again.');
+            });
         }
 
         // Show category books
