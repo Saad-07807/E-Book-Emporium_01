@@ -281,7 +281,7 @@ $cart = $_SESSION['cart'];
             list-style: none;
             margin: 0;
             padding: 0;
-            align-items: center;
+            align-items: flex;
         }
         
         .nav-item {
@@ -318,7 +318,7 @@ $cart = $_SESSION['cart'];
         .header-collapse {
             display: flex;
             align-items: center;
-            flex-grow: 1;
+            flex-grow: 0;
             justify-content: space-between;
         }
         
@@ -1505,8 +1505,11 @@ $cart = $_SESSION['cart'];
             .add-to-cart, .preview-btn {
                 width: 100%;
                 margin-right: 0;
+        
             }
         }
+
+
     </style>
 </head>
 <body>
