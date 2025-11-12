@@ -48,4 +48,9 @@ function requireAdmin() {
         exit();
     }
 }
+
+// Check if book is free
+function isBookFree($price) {
+    return $price == 0.00;
+}
 ?>

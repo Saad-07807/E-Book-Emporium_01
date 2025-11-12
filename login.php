@@ -6,7 +6,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'];
     
     $conn = getDBConnection();
-    $stmt = $conn->prepare("SELECT id, full_name, password, role FROM users WHERE email = ?");
+    $stmt = $conn->prepare("SELECT id, username, full_name, password, role, email FROM users WHERE email = ?");
     $stmt->bind_param("s", $email);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -17,6 +17,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['user_name'] = $user['full_name'];
             $_SESSION['user_role'] = $user['role'];
+            $_SESSION['username'] = $user['username'];
+            $_SESSION['user_email'] = $user['email'];
             
             // Redirect to admin panel if admin
             if ($user['role'] === 'admin') {

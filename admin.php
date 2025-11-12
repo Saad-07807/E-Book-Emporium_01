@@ -75,6 +75,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute();
         $stmt->close();
     }
+
+    if (isset($_POST['mark_as_winner'])) {
+        $submission_id = intval($_POST['submission_id']);
+        $competition_id = intval($_POST['competition_id']);
+        $user_id = intval($_POST['user_id']);
+        $prize_details = trim($_POST['prize_details']);
+        
+        // Mark submission as winner
+        $stmt = $conn->prepare("UPDATE competition_submissions SET is_winner=1 WHERE id=?");
+        $stmt->bind_param("i", $submission_id);
+        $stmt->execute();
+        $stmt->close();
+        
+        // Add to winners table
+        $stmt = $conn->prepare("INSERT INTO winners (competition_id, user_id, submission_id, prize_details) VALUES (?, ?, ?, ?)");
+        $stmt->bind_param("iiis", $competition_id, $user_id, $submission_id, $prize_details);
+        $stmt->execute();
+        $stmt->close();
+    }
     
     $conn->close();
     
@@ -129,6 +148,37 @@ $competitions = [];
 $result = $conn->query("SELECT * FROM competitions ORDER BY start_date DESC");
 while($row = $result->fetch_assoc()) {
     $competitions[] = $row;
+}
+
+// Competition Submissions
+$submissions = [];
+$result = $conn->query("
+    SELECT cs.*, c.title as competition_title, c.type as competition_type, 
+           u.full_name, u.email, u.username,
+           w.prize_details
+    FROM competition_submissions cs
+    JOIN competitions c ON cs.competition_id = c.id
+    JOIN users u ON cs.user_id = u.id
+    LEFT JOIN winners w ON cs.id = w.submission_id
+    ORDER BY cs.submission_time DESC
+");
+while($row = $result->fetch_assoc()) {
+    $submissions[] = $row;
+}
+
+// Winners
+$winners = [];
+$result = $conn->query("
+    SELECT w.*, u.full_name, u.email, c.title as competition_title,
+           cs.title as submission_title
+    FROM winners w
+    JOIN users u ON w.user_id = u.id
+    JOIN competitions c ON w.competition_id = c.id
+    JOIN competition_submissions cs ON w.submission_id = cs.id
+    ORDER BY w.announced_date DESC
+");
+while($row = $result->fetch_assoc()) {
+    $winners[] = $row;
 }
 
 // Users
@@ -205,6 +255,15 @@ $conn->close();
         .badge-shipped { background-color: #17a2b8; }
         .badge-delivered { background-color: var(--success); }
         .badge-cancelled { background-color: var(--danger); }
+        
+        .submission-content {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 5px;
+            background: #f8f9fa;
+        }
     </style>
 </head>
 <body>
@@ -220,9 +279,6 @@ $conn->close();
             <a class="nav-link" href="#books">
                 <i class="fas fa-book me-2"></i>Books Management
             </a>
-            <a class="nav-link" href="#categories">
-                <i class="fas fa-tags me-2"></i>Categories
-            </a>
             <a class="nav-link" href="#orders">
                 <i class="fas fa-shopping-cart me-2"></i>Orders
             </a>
@@ -232,14 +288,14 @@ $conn->close();
             <a class="nav-link" href="#competitions">
                 <i class="fas fa-trophy me-2"></i>Competitions
             </a>
-            <a class="nav-link" href="#reports">
-                <i class="fas fa-chart-bar me-2"></i>Reports
+            <a class="nav-link" href="#submissions">
+                <i class="fas fa-file-upload me-2"></i>Submissions
+            </a>
+            <a class="nav-link" href="#winners">
+                <i class="fas fa-award me-2"></i>Winners
             </a>
             <a class="nav-link" href="index.php">
                 <i class="fas fa-home me-2"></i>Back to Site
-            </a>
-            <a class="nav-link" href="logout.php">
-                <i class="fas fa-sign-out-alt me-2"></i>Logout
             </a>
         </nav>
     </div>
@@ -404,24 +460,6 @@ $conn->close();
                         </table>
                     </div>
                 </div>
-            </div>
-        </section>
-
-        <!-- Categories Section -->
-        <section id="categories" style="display: none;">
-            <h2 class="mb-4">Categories Management</h2>
-            <div class="row">
-                <?php foreach($categories as $category): ?>
-                <div class="col-md-3 mb-3">
-                    <div class="card">
-                        <div class="card-body text-center">
-                            <i class="<?php echo $category['icon']; ?> fa-2x mb-3 text-primary"></i>
-                            <h5><?php echo htmlspecialchars($category['name']); ?></h5>
-                            <p class="text-muted"><?php echo htmlspecialchars($category['description']); ?></p>
-                        </div>
-                    </div>
-                </div>
-                <?php endforeach; ?>
             </div>
         </section>
 
@@ -595,28 +633,106 @@ $conn->close();
             </div>
         </section>
 
-        <!-- Reports Section -->
-        <section id="reports" style="display: none;">
-            <h2 class="mb-4">Reports & Analytics</h2>
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">Sales Overview</h5>
-                        </div>
-                        <div class="card-body">
-                            <canvas id="salesChart" width="400" height="200"></canvas>
-                        </div>
+        <!-- Competition Submissions Section -->
+        <section id="submissions" style="display: none;">
+            <h2 class="mb-4">Competition Submissions</h2>
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Competition</th>
+                                    <th>User</th>
+                                    <th>Submission Title</th>
+                                    <th>Type</th>
+                                    <th>Submission Date</th>
+                                    <th>Winner Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach($submissions as $submission): ?>
+                                <tr>
+                                    <td><?php echo $submission['id']; ?></td>
+                                    <td><?php echo htmlspecialchars($submission['competition_title']); ?></td>
+                                    <td>
+                                        <div><?php echo htmlspecialchars($submission['full_name']); ?></div>
+                                        <small class="text-muted"><?php echo htmlspecialchars($submission['email']); ?></small>
+                                    </td>
+                                    <td><?php echo htmlspecialchars($submission['title']); ?></td>
+                                    <td><?php echo ucfirst($submission['competition_type']); ?></td>
+                                    <td><?php echo date('M d, Y H:i', strtotime($submission['submission_time'])); ?></td>
+                                    <td>
+                                        <span class="badge <?php echo $submission['is_winner'] ? 'bg-success' : 'bg-secondary'; ?>">
+                                            <?php echo $submission['is_winner'] ? 'Winner' : 'Not Winner'; ?>
+                                        </span>
+                                    </td>
+                                    <td class="table-actions">
+                                        <button class="btn btn-sm btn-outline-info" onclick="viewSubmission(<?php echo htmlspecialchars(json_encode($submission)); ?>)">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <?php if(!$submission['is_winner']): ?>
+                                        <button class="btn btn-sm btn-outline-success" onclick="markAsWinner(<?php echo $submission['id']; ?>, <?php echo $submission['competition_id']; ?>, <?php echo $submission['user_id']; ?>)">
+                                            <i class="fas fa-trophy"></i>
+                                        </button>
+                                        <?php endif; ?>
+                                        <button class="btn btn-sm btn-outline-danger">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">Top Categories</h5>
-                        </div>
-                        <div class="card-body">
-                            <canvas id="categoriesChart" width="400" height="200"></canvas>
-                        </div>
+            </div>
+        </section>
+
+        <!-- Winners Section -->
+        <section id="winners" style="display: none;">
+            <h2 class="mb-4">Competition Winners</h2>
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Competition</th>
+                                    <th>Winner</th>
+                                    <th>Submission Title</th>
+                                    <th>Prize Details</th>
+                                    <th>Announced Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach($winners as $winner): ?>
+                                <tr>
+                                    <td><?php echo $winner['id']; ?></td>
+                                    <td><?php echo htmlspecialchars($winner['competition_title']); ?></td>
+                                    <td>
+                                        <div><?php echo htmlspecialchars($winner['full_name']); ?></div>
+                                        <small class="text-muted"><?php echo htmlspecialchars($winner['email']); ?></small>
+                                    </td>
+                                    <td><?php echo htmlspecialchars($winner['submission_title']); ?></td>
+                                    <td><?php echo htmlspecialchars($winner['prize_details']); ?></td>
+                                    <td><?php echo date('M d, Y H:i', strtotime($winner['announced_date'])); ?></td>
+                                    <td class="table-actions">
+                                        <button class="btn btn-sm btn-outline-info" onclick="viewWinnerDetails(<?php echo htmlspecialchars(json_encode($winner)); ?>)">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -811,12 +927,110 @@ $conn->close();
         </div>
     </div>
 
+    <!-- Mark as Winner Modal -->
+    <div class="modal fade" id="markWinnerModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Mark Submission as Winner</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST">
+                    <div class="modal-body">
+                        <input type="hidden" name="submission_id" id="winner_submission_id">
+                        <input type="hidden" name="competition_id" id="winner_competition_id">
+                        <input type="hidden" name="user_id" id="winner_user_id">
+                        <div class="mb-3">
+                            <label class="form-label">Prize Details</label>
+                            <textarea class="form-control" name="prize_details" id="winner_prize_details" rows="3" required placeholder="Enter prize details (e.g., First Prize: $500 + Publication)"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success" name="mark_as_winner">Mark as Winner</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Submission Modal -->
+    <div class="modal fade" id="viewSubmissionModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Submission Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Competition:</strong>
+                            <span id="view_competition_title"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Submission Type:</strong>
+                            <span id="view_submission_type"></span>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Submitted By:</strong>
+                            <span id="view_submitter_name"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Email:</strong>
+                            <span id="view_submitter_email"></span>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Submission Title:</strong>
+                            <span id="view_submission_title"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Submission Date:</strong>
+                            <span id="view_submission_date"></span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Content:</strong>
+                        <div class="submission-content mt-2" id="view_submission_content"></div>
+                    </div>
+                    <div id="view_file_section" class="mb-3" style="display: none;">
+                        <strong>Attached File:</strong>
+                        <div class="mt-2">
+                            <a href="#" id="view_file_link" class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-download me-2"></i>Download File
+                            </a>
+                        </div>
+                    </div>
+                    <div id="view_winner_section" class="mb-3" style="display: none;">
+                        <strong>Winner Status:</strong>
+                        <span class="badge bg-success">Winner</span>
+                        <div class="mt-2">
+                            <strong>Prize Details:</strong>
+                            <span id="view_prize_details"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         // Navigation
         document.querySelectorAll('.sidebar .nav-link').forEach(link => {
             link.addEventListener('click', function(e) {
+                // Don't prevent default for "Back to Site" link
+                if (this.getAttribute('href') === 'index.php') {
+                    return; // Allow normal link behavior
+                }
+                
                 e.preventDefault();
                 
                 // Remove active class from all links
@@ -873,55 +1087,52 @@ $conn->close();
             }
         }
 
-        // Charts
-        document.addEventListener('DOMContentLoaded', function() {
-            // Sales Chart
-            const salesCtx = document.getElementById('salesChart').getContext('2d');
-            const salesChart = new Chart(salesCtx, {
-                type: 'line',
-                data: {
-                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-                    datasets: [{
-                        label: 'Sales ($)',
-                        data: [1200, 1900, 1500, 2200, 1800, 2500],
-                        borderColor: '#007bff',
-                        backgroundColor: 'rgba(0, 123, 255, 0.1)',
-                        tension: 0.4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                        }
-                    }
-                }
-            });
+        // Competition submission functions
+        function viewSubmission(submission) {
+            document.getElementById('view_competition_title').textContent = submission.competition_title;
+            document.getElementById('view_submission_type').textContent = submission.competition_type;
+            document.getElementById('view_submitter_name').textContent = submission.full_name;
+            document.getElementById('view_submitter_email').textContent = submission.email;
+            document.getElementById('view_submission_title').textContent = submission.title;
+            document.getElementById('view_submission_date').textContent = new Date(submission.submission_time).toLocaleString();
+            document.getElementById('view_submission_content').textContent = submission.content;
+            
+            // Show file section if file exists
+            if (submission.file_path) {
+                document.getElementById('view_file_section').style.display = 'block';
+                document.getElementById('view_file_link').href = submission.file_path;
+            } else {
+                document.getElementById('view_file_section').style.display = 'none';
+            }
+            
+            // Show winner section if winner
+            if (submission.is_winner) {
+                document.getElementById('view_winner_section').style.display = 'block';
+                document.getElementById('view_prize_details').textContent = submission.prize_details || 'No prize details available';
+            } else {
+                document.getElementById('view_winner_section').style.display = 'none';
+            }
+            
+            new bootstrap.Modal(document.getElementById('viewSubmissionModal')).show();
+        }
 
-            // Categories Chart
-            const categoriesCtx = document.getElementById('categoriesChart').getContext('2d');
-            const categoriesChart = new Chart(categoriesCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Fiction', 'Science', 'History', 'Romance', 'Mystery', 'Sci-Fi'],
-                    datasets: [{
-                        data: [30, 15, 20, 10, 15, 10],
-                        backgroundColor: [
-                            '#007bff', '#28a745', '#ffc107', '#dc3545', '#6f42c1', '#20c997'
-                        ]
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                        }
-                    }
-                }
-            });
-        });
+        function markAsWinner(submissionId, competitionId, userId) {
+            document.getElementById('winner_submission_id').value = submissionId;
+            document.getElementById('winner_competition_id').value = competitionId;
+            document.getElementById('winner_user_id').value = userId;
+            document.getElementById('winner_prize_details').value = '';
+            new bootstrap.Modal(document.getElementById('markWinnerModal')).show();
+        }
+
+        function viewWinnerDetails(winner) {
+            // You can implement a detailed view for winners if needed
+            alert('Winner Details:\n\n' +
+                  'Competition: ' + winner.competition_title + '\n' +
+                  'Winner: ' + winner.full_name + '\n' +
+                  'Submission: ' + winner.submission_title + '\n' +
+                  'Prize: ' + winner.prize_details + '\n' +
+                  'Announced: ' + new Date(winner.announced_date).toLocaleString());
+        }
     </script>
 </body>
 </html>

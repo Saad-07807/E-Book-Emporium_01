@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
     $password = $_POST['password'];
     
     $conn = getDBConnection();
-    $stmt = $conn->prepare("SELECT id, username, full_name, password, role FROM users WHERE email = ?");
+    $stmt = $conn->prepare("SELECT id, username, full_name, password, role, email FROM users WHERE email = ?");
     $stmt->bind_param("s", $email);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -48,6 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
             $_SESSION['user_name'] = $user['full_name'];
             $_SESSION['user_role'] = $user['role'];
             $_SESSION['username'] = $user['username'];
+            $_SESSION['user_email'] = $user['email'];
         }
     }
     $stmt->close();
@@ -71,6 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
         $_SESSION['user_id'] = $conn->insert_id;
         $_SESSION['user_name'] = $full_name;
         $_SESSION['username'] = $username;
+        $_SESSION['user_email'] = $email;
         $_SESSION['user_role'] = 'user';
     }
     $stmt->close();
@@ -134,17 +136,19 @@ $winners = [];
 $result = $conn->query("
     SELECT w.*, u.full_name, c.title as competition_title 
     FROM winners w 
-    JOIN users u ON w.user_id = u.id 
-    JOIN competitions c ON w.competition_id = c.id 
+    LEFT JOIN users u ON w.user_id = u.id 
+    LEFT JOIN competitions c ON w.competition_id = c.id 
     ORDER BY w.announced_date DESC 
     LIMIT 3
 ");
-if ($result) {
+if ($result && $result->num_rows > 0) {
     while($row = $result->fetch_assoc()) {
+        // Ensure all required fields exist
+        $row['full_name'] = $row['full_name'] ?? 'Unknown Winner';
+        $row['competition_title'] = $row['competition_title'] ?? 'Competition';
         $winners[] = $row;
     }
 }
-
 // Get dealers
 $dealers = [];
 $result = $conn->query("SELECT * FROM dealers WHERE is_active = 1");
@@ -254,7 +258,6 @@ $cart = $_SESSION['cart'];
         .header-brand-container {
             display: flex;
             align-items: center;
-            gap: 15px;
         }
 
         .header-brand {
@@ -281,7 +284,7 @@ $cart = $_SESSION['cart'];
             list-style: none;
             margin: 0;
             padding: 0;
-            align-items: flex;
+            align-items: center;
         }
         
         .nav-item {
@@ -1395,6 +1398,8 @@ $cart = $_SESSION['cart'];
                 flex-direction: column;
                 width: 100%;
                 align-items: flex-start;
+                max-height: 60vh;
+                overflow-y: auto;
             }
             
             .nav-item {
@@ -1412,6 +1417,8 @@ $cart = $_SESSION['cart'];
                 margin-top: 15px;
                 width: 100%;
                 justify-content: space-between;
+                flex-wrap: wrap;
+                gap: 10px;
             }
             
             .search-bar {
@@ -1505,11 +1512,8 @@ $cart = $_SESSION['cart'];
             .add-to-cart, .preview-btn {
                 width: 100%;
                 margin-right: 0;
-        
             }
         }
-
-
     </style>
 </head>
 <body>
@@ -1555,13 +1559,6 @@ $cart = $_SESSION['cart'];
                     <li class="nav-item">
                         <a class="nav-link" href="#contact">Contact</a>
                     </li>
-                    <?php if(isLoggedIn() && isAdmin()): ?>
-                        <li class="nav-item">
-                            <a class="nav-link" href="admin.php">
-                                <i class="fas fa-cog me-2"></i>Admin Panel
-                            </a>
-                        </li>
-                    <?php endif; ?>
                 </ul>
                 
                 <div class="header-actions">
@@ -1584,6 +1581,12 @@ $cart = $_SESSION['cart'];
                                 <i class="fas fa-chevron-down"></i>
                             </button>
                             <div class="user-dropdown-menu" id="user-dropdown-menu">
+                                <?php if(isAdmin()): ?>
+                                    <a href="admin.php" class="dropdown-item">
+                                        <i class="fas fa-cog"></i> Admin Panel
+                                    </a>
+                                    <div class="dropdown-divider"></div>
+                                <?php endif; ?>
                                 <a href="dashboard.php" class="dropdown-item">
                                     <i class="fas fa-tachometer-alt"></i> Dashboard
                                 </a>
@@ -1680,14 +1683,16 @@ $cart = $_SESSION['cart'];
     <div class="competition-modal" id="competition-modal">
         <div class="competition-form">
             <h3>Participate in Competition</h3>
-            <form id="competition-form" enctype="multipart/form-data">
+            <form id="competition-form" method="POST" action="submit_competition.php" enctype="multipart/form-data">
                 <div class="form-group">
                     <label for="participant-name">Full Name</label>
-                    <input type="text" id="participant-name" name="participant_name" required>
+                    <input type="text" id="participant-name" name="participant_name" required 
+                           value="<?php echo isLoggedIn() ? $_SESSION['user_name'] : ''; ?>">
                 </div>
                 <div class="form-group">
                     <label for="participant-email">Email</label>
-                    <input type="email" id="participant-email" name="participant_email" required>
+                    <input type="email" id="participant-email" name="participant_email" required
+                           value="<?php echo isLoggedIn() ? $_SESSION['user_email'] : ''; ?>">
                 </div>
                 <div class="form-group">
                     <label for="submission-title">Submission Title</label>
@@ -1695,11 +1700,12 @@ $cart = $_SESSION['cart'];
                 </div>
                 <div class="form-group">
                     <label for="submission-content">Submission Content</label>
-                    <textarea id="submission-content" name="submission_content" rows="6" required></textarea>
+                    <textarea id="submission-content" name="submission_content" rows="6" required 
+                              placeholder="Write your essay or story here..."></textarea>
                 </div>
                 <div class="form-group">
-                    <label for="submission-file">Upload Document (PDF/DOC)</label>
-                    <input type="file" id="submission-file" name="submission_file" accept=".pdf,.doc,.docx" required>
+                    <label for="submission-file">Upload Document (PDF/DOC/DOCX/TXT - Optional)</label>
+                    <input type="file" id="submission-file" name="submission_file" accept=".pdf,.doc,.docx,.txt">
                 </div>
                 <input type="hidden" id="competition-id" name="competition_id">
                 <button type="submit" class="btn" style="width: 100%;">Submit Entry</button>
@@ -1752,7 +1758,7 @@ $cart = $_SESSION['cart'];
                 <div class="books-grid" id="books-grid">
                     <?php foreach($featured_books as $book): ?>
                         <div class="book-card">
-                            <?php if($book['is_free']): ?>
+                            <?php if($book['price'] == 0.00): ?>
                                 <div class="book-badge">Free</div>
                             <?php endif; ?>
                             <div class="book-image">
@@ -1762,7 +1768,7 @@ $cart = $_SESSION['cart'];
                                 <h3 class="book-title"><?php echo htmlspecialchars($book['title']); ?></h3>
                                 <p class="book-author"><?php echo htmlspecialchars($book['author']); ?></p>
                                 <p class="book-price">
-                                    <?php if($book['is_free']): ?>
+                                    <?php if($book['price'] == 0.00): ?>
                                         FREE
                                     <?php else: ?>
                                         $<?php echo number_format($book['price'], 2); ?>
@@ -1854,13 +1860,19 @@ $cart = $_SESSION['cart'];
             </div>
         </section>
 
-        <!-- Recent Winners -->
+                <!-- Recent Winners -->
         <section class="featured-books">
             <div class="container">
                 <h2 class="section-title">Recent Winners</h2>
                 <div class="books-grid">
-                    <?php if(count($winners) > 0): ?>
-                        <?php foreach($winners as $winner): ?>
+                    <?php 
+                    $winners_display = false;
+                    if(!empty($winners)): 
+                        foreach($winners as $winner): 
+                            // Check if required fields exist
+                            if(isset($winner['full_name']) && isset($winner['competition_title'])):
+                                $winners_display = true;
+                    ?>
                             <div class="book-card">
                                 <div class="book-info">
                                     <h3 class="book-title"><?php echo htmlspecialchars($winner['full_name']); ?></h3>
@@ -1873,8 +1885,13 @@ $cart = $_SESSION['cart'];
                                     </div>
                                 </div>
                             </div>
-                        <?php endforeach; ?>
-                    <?php else: ?>
+                    <?php 
+                            endif;
+                        endforeach; 
+                    endif; 
+                    
+                    if(!$winners_display): 
+                    ?>
                         <div class="no-winners">
                             <p>No winners announced yet. Be the first to win our competitions!</p>
                         </div>
@@ -2271,7 +2288,37 @@ $cart = $_SESSION['cart'];
             if (competitionForm) {
                 competitionForm.addEventListener('submit', function(e) {
                     e.preventDefault();
-                    submitCompetitionEntry();
+                    
+                    // Basic validation
+                    const title = document.getElementById('submission-title').value;
+                    const content = document.getElementById('submission-content').value;
+                    
+                    if (title.trim() === '' || content.trim() === '') {
+                        alert('Please fill in all required fields');
+                        return;
+                    }
+                    
+                    // Submit via AJAX
+                    const formData = new FormData(competitionForm);
+                    
+                    fetch('submit_competition.php', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert(data.message);
+                            closeCompetitionModal();
+                            competitionForm.reset();
+                        } else {
+                            alert(data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Error submitting your entry. Please try again.');
+                    });
                 });
             }
 
@@ -2327,30 +2374,6 @@ $cart = $_SESSION['cart'];
         function closeCompetitionModal() {
             competitionModal.classList.remove('active');
         }
-        
-        function submitCompetitionEntry() {
-            const formData = new FormData(competitionForm);
-            
-            // In a real application, you would send this to the server
-            fetch('submit_competition.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Your competition entry has been submitted successfully!');
-                    closeCompetitionModal();
-                    competitionForm.reset();
-                } else {
-                    alert('Error submitting your entry. Please try again.');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Error submitting your entry. Please try again.');
-            });
-        }
 
         // Show category books
         function showCategoryBooks(categoryId) {
@@ -2398,14 +2421,14 @@ $cart = $_SESSION['cart'];
                 const bookCard = document.createElement('div');
                 bookCard.className = 'book-card';
                 bookCard.innerHTML = `
-                    ${book.is_free ? '<div class="book-badge">Free</div>' : ''}
+                    ${book.price == 0.00 ? '<div class="book-badge">Free</div>' : ''}
                     <div class="book-image">
                         <img src="${book.cover_image}" alt="${book.title}">
                     </div>
                     <div class="book-info">
                         <h3 class="book-title">${book.title}</h3>
                         <p class="book-author">${book.author}</p>
-                        <p class="book-price">${book.is_free ? 'FREE' : '$' + parseFloat(book.price).toFixed(2)}</p>
+                        <p class="book-price">${book.price == 0.00 ? 'FREE' : '$' + parseFloat(book.price).toFixed(2)}</p>
                         <div class="book-actions">
                             <button class="add-to-cart" data-id="${book.id}" data-title="${book.title}" data-price="${book.price}" data-image="${book.cover_image}">
                                 <i class="fas fa-shopping-cart"></i> Add to Cart
@@ -2487,7 +2510,7 @@ $cart = $_SESSION['cart'];
                         <div class="search-result-title">${book.title}</div>
                         <div class="search-result-author">${book.author}</div>
                     </div>
-                    <div class="search-result-price">${book.is_free ? 'FREE' : '$' + parseFloat(book.price).toFixed(2)}</div>
+                    <div class="search-result-price">${book.price == 0.00 ? 'FREE' : '$' + parseFloat(book.price).toFixed(2)}</div>
                 `;
                 
                 // Navigate to category instead of adding to cart

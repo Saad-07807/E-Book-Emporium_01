@@ -16,6 +16,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($stmt->execute()) {
         $_SESSION['user_id'] = $conn->insert_id;
         $_SESSION['user_name'] = $full_name;
+        $_SESSION['username'] = $username;
+        $_SESSION['user_email'] = $email;
+        $_SESSION['user_role'] = 'user';
         header("Location: index.php");
         exit();
     }
