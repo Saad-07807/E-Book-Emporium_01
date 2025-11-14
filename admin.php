@@ -11,30 +11,12 @@ if (!isLoggedIn() || $_SESSION['user_role'] !== 'admin') {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $conn = getDBConnection();
     
-    if (isset($_POST['add_book'])) {
-        $title = trim($_POST['title']);
-        $author = trim($_POST['author']);
-        $description = trim($_POST['description']);
-        $price = floatval($_POST['price']);
-        $category_id = intval($_POST['category_id']);
-        $is_free = isset($_POST['is_free']) ? 1 : 0;
-        $featured = isset($_POST['featured']) ? 1 : 0;
-        $stock_quantity = intval($_POST['stock_quantity']);
-        $pages = intval($_POST['pages']);
-        $publication_year = intval($_POST['publication_year']);
-        $isbn = trim($_POST['isbn']);
-        
-        $stmt = $conn->prepare("INSERT INTO books (title, author, description, price, category_id, is_free, featured, stock_quantity, pages, publication_year, isbn) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("sssdiisiiis", $title, $author, $description, $price, $category_id, $is_free, $featured, $stock_quantity, $pages, $publication_year, $isbn);
-        $stmt->execute();
-        $stmt->close();
-    }
-    
     if (isset($_POST['update_book'])) {
         $book_id = intval($_POST['book_id']);
         $title = trim($_POST['title']);
         $author = trim($_POST['author']);
         $description = trim($_POST['description']);
+        $preview_content = trim($_POST['preview_content']);
         $price = floatval($_POST['price']);
         $category_id = intval($_POST['category_id']);
         $is_free = isset($_POST['is_free']) ? 1 : 0;
@@ -45,23 +27,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $isbn = trim($_POST['isbn']);
         $status = $_POST['status'];
         
-        $stmt = $conn->prepare("UPDATE books SET title=?, author=?, description=?, price=?, category_id=?, is_free=?, featured=?, stock_quantity=?, pages=?, publication_year=?, isbn=?, status=? WHERE id=?");
-        $stmt->bind_param("sssdiisiiissi", $title, $author, $description, $price, $category_id, $is_free, $featured, $stock_quantity, $pages, $publication_year, $isbn, $status, $book_id);
-        $stmt->execute();
-        $stmt->close();
-    }
-    
-    if (isset($_POST['add_competition'])) {
-        $title = trim($_POST['title']);
-        $description = trim($_POST['description']);
-        $type = $_POST['type'];
-        $start_date = $_POST['start_date'];
-        $end_date = $_POST['end_date'];
-        $rules = trim($_POST['rules']);
-        $prizes = trim($_POST['prizes']);
-        
-        $stmt = $conn->prepare("INSERT INTO competitions (title, description, type, start_date, end_date, rules, prizes) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("sssssss", $title, $description, $type, $start_date, $end_date, $rules, $prizes);
+        $stmt = $conn->prepare("UPDATE books SET title=?, author=?, description=?, preview_content=?, price=?, category_id=?, is_free=?, featured=?, stock_quantity=?, pages=?, publication_year=?, isbn=?, status=? WHERE id=?");
+        $stmt->bind_param("ssssdiisiiissi", $title, $author, $description, $preview_content, $price, $category_id, $is_free, $featured, $stock_quantity, $pages, $publication_year, $isbn, $status, $book_id);
         $stmt->execute();
         $stmt->close();
     }
@@ -264,6 +231,16 @@ $conn->close();
             border-radius: 5px;
             background: #f8f9fa;
         }
+        
+        .preview-text {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 5px;
+            background: #f8f9fa;
+            line-height: 1.6;
+        }
     </style>
 </head>
 <body>
@@ -409,9 +386,6 @@ $conn->close();
         <section id="books" style="display: none;">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h2>Books Management</h2>
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addBookModal">
-                    <i class="fas fa-plus me-2"></i>Add New Book
-                </button>
             </div>
 
             <div class="card">
@@ -507,9 +481,6 @@ $conn->close();
                                         <button class="btn btn-sm btn-outline-primary" onclick="updateOrderStatus(<?php echo $order['id']; ?>, '<?php echo $order['status']; ?>')">
                                             <i class="fas fa-edit"></i>
                                         </button>
-                                        <a href="order_details.php?id=<?php echo $order['id']; ?>" class="btn btn-sm btn-outline-info">
-                                            <i class="fas fa-eye"></i>
-                                        </a>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
@@ -558,10 +529,7 @@ $conn->close();
                                         </span>
                                     </td>
                                     <td class="table-actions">
-                                        <button class="btn btn-sm btn-outline-primary">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-danger">
+                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteUser(<?php echo $user['id']; ?>)">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </td>
@@ -578,9 +546,6 @@ $conn->close();
         <section id="competitions" style="display: none;">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h2>Competitions Management</h2>
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCompetitionModal">
-                    <i class="fas fa-plus me-2"></i>Add New Competition
-                </button>
             </div>
 
             <div class="card">
@@ -614,13 +579,7 @@ $conn->close();
                                         </span>
                                     </td>
                                     <td class="table-actions">
-                                        <button class="btn btn-sm btn-outline-primary">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-info">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-danger">
+                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteCompetition(<?php echo $competition['id']; ?>)">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </td>
@@ -678,7 +637,7 @@ $conn->close();
                                             <i class="fas fa-trophy"></i>
                                         </button>
                                         <?php endif; ?>
-                                        <button class="btn btn-sm btn-outline-danger">
+                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteSubmission(<?php echo $submission['id']; ?>)">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </td>
@@ -722,10 +681,7 @@ $conn->close();
                                     <td><?php echo htmlspecialchars($winner['prize_details']); ?></td>
                                     <td><?php echo date('M d, Y H:i', strtotime($winner['announced_date'])); ?></td>
                                     <td class="table-actions">
-                                        <button class="btn btn-sm btn-outline-info" onclick="viewWinnerDetails(<?php echo htmlspecialchars(json_encode($winner)); ?>)">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-danger">
+                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteWinner(<?php echo $winner['id']; ?>)">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </td>
@@ -737,163 +693,6 @@ $conn->close();
                 </div>
             </div>
         </section>
-    </div>
-
-    <!-- Add Book Modal -->
-    <div class="modal fade" id="addBookModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Add New Book</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form method="POST">
-                    <div class="modal-body">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">Title</label>
-                                    <input type="text" class="form-control" name="title" required>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">Author</label>
-                                    <input type="text" class="form-control" name="author" required>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Description</label>
-                            <textarea class="form-control" name="description" rows="3" required></textarea>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label class="form-label">Price ($)</label>
-                                    <input type="number" class="form-control" name="price" step="0.01" required>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label class="form-label">Category</label>
-                                    <select class="form-control" name="category_id" required>
-                                        <?php foreach($categories as $category): ?>
-                                        <option value="<?php echo $category['id']; ?>"><?php echo htmlspecialchars($category['name']); ?></option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label class="form-label">Stock Quantity</label>
-                                    <input type="number" class="form-control" name="stock_quantity" value="0">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label class="form-label">Pages</label>
-                                    <input type="number" class="form-control" name="pages">
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label class="form-label">Publication Year</label>
-                                    <input type="number" class="form-control" name="publication_year" min="1900" max="2030">
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label class="form-label">ISBN</label>
-                                    <input type="text" class="form-control" name="isbn">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="form-check mb-3">
-                                    <input class="form-check-input" type="checkbox" name="is_free" id="is_free">
-                                    <label class="form-check-label" for="is_free">Free Book</label>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="form-check mb-3">
-                                    <input class="form-check-input" type="checkbox" name="featured" id="featured">
-                                    <label class="form-check-label" for="featured">Featured Book</label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary" name="add_book">Add Book</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Add Competition Modal -->
-    <div class="modal fade" id="addCompetitionModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Add New Competition</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form method="POST">
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label">Title</label>
-                            <input type="text" class="form-control" name="title" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Description</label>
-                            <textarea class="form-control" name="description" rows="3" required></textarea>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">Type</label>
-                                    <select class="form-control" name="type" required>
-                                        <option value="essay">Essay Writing</option>
-                                        <option value="story">Story Writing</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">Start Date</label>
-                                    <input type="date" class="form-control" name="start_date" required>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">End Date</label>
-                                    <input type="date" class="form-control" name="end_date" required>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Rules</label>
-                            <textarea class="form-control" name="rules" rows="3" required></textarea>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Prizes</label>
-                            <textarea class="form-control" name="prizes" rows="2" required></textarea>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary" name="add_competition">Add Competition</button>
-                    </div>
-                </form>
-            </div>
-        </div>
     </div>
 
     <!-- Update Order Status Modal -->
@@ -921,6 +720,116 @@ $conn->close();
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-primary" name="update_order_status">Update Status</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Book Modal -->
+    <div class="modal fade" id="editBookModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Book</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST">
+                    <div class="modal-body">
+                        <input type="hidden" name="book_id" id="edit_book_id">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Title</label>
+                                    <input type="text" class="form-control" name="title" id="edit_title" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Author</label>
+                                    <input type="text" class="form-control" name="author" id="edit_author" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" name="description" id="edit_description" rows="3" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Preview Content</label>
+                            <textarea class="form-control" name="preview_content" id="edit_preview_content" rows="4" required></textarea>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Price ($)</label>
+                                    <input type="number" class="form-control" name="price" id="edit_price" step="0.01" required>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Category</label>
+                                    <select class="form-control" name="category_id" id="edit_category_id" required>
+                                        <?php foreach($categories as $category): ?>
+                                        <option value="<?php echo $category['id']; ?>"><?php echo htmlspecialchars($category['name']); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Stock Quantity</label>
+                                    <input type="number" class="form-control" name="stock_quantity" id="edit_stock_quantity" value="0">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Pages</label>
+                                    <input type="number" class="form-control" name="pages" id="edit_pages">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Publication Year</label>
+                                    <input type="number" class="form-control" name="publication_year" id="edit_publication_year" min="1900" max="2030">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">ISBN</label>
+                                    <input type="text" class="form-control" name="isbn" id="edit_isbn">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" name="is_free" id="edit_is_free">
+                                    <label class="form-check-label" for="edit_is_free">Free Book</label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" name="featured" id="edit_featured">
+                                    <label class="form-check-label" for="edit_featured">Featured Book</label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Status</label>
+                                    <select class="form-control" name="status" id="edit_status" required>
+                                        <option value="active">Active</option>
+                                        <option value="inactive">Inactive</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary" name="update_book">Update Book</button>
                     </div>
                 </form>
             </div>
@@ -1061,14 +970,26 @@ $conn->close();
 
         // Book management functions
         function editBook(book) {
-            // Implementation for editing book
-            alert('Edit book: ' + book.title);
-            // You would populate a modal with book data for editing
+            document.getElementById('edit_book_id').value = book.id;
+            document.getElementById('edit_title').value = book.title;
+            document.getElementById('edit_author').value = book.author;
+            document.getElementById('edit_description').value = book.description;
+            document.getElementById('edit_preview_content').value = book.preview_content || '';
+            document.getElementById('edit_price').value = book.price;
+            document.getElementById('edit_category_id').value = book.category_id;
+            document.getElementById('edit_stock_quantity').value = book.stock_quantity;
+            document.getElementById('edit_pages').value = book.pages || '';
+            document.getElementById('edit_publication_year').value = book.publication_year || '';
+            document.getElementById('edit_isbn').value = book.isbn || '';
+            document.getElementById('edit_is_free').checked = book.price == 0.00;
+            document.getElementById('edit_featured').checked = book.featured == 1;
+            document.getElementById('edit_status').value = book.status;
+            
+            new bootstrap.Modal(document.getElementById('editBookModal')).show();
         }
 
         function deleteBook(bookId) {
             if (confirm('Are you sure you want to delete this book?')) {
-                // Implementation for deleting book
                 fetch('delete_book.php', {
                     method: 'POST',
                     headers: {
@@ -1081,8 +1002,112 @@ $conn->close();
                     if (data.success) {
                         location.reload();
                     } else {
-                        alert('Error deleting book');
+                        alert('Error deleting book: ' + data.message);
                     }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error deleting book');
+                });
+            }
+        }
+
+        // User management functions
+        function deleteUser(userId) {
+            if (confirm('Are you sure you want to delete this user?')) {
+                fetch('delete_user.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ user_id: userId })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Error deleting user: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error deleting user');
+                });
+            }
+        }
+
+        // Competition management functions
+        function deleteCompetition(competitionId) {
+            if (confirm('Are you sure you want to delete this competition?')) {
+                fetch('delete_competition.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ competition_id: competitionId })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Error deleting competition: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error deleting competition');
+                });
+            }
+        }
+
+        // Submission management functions
+        function deleteSubmission(submissionId) {
+            if (confirm('Are you sure you want to delete this submission?')) {
+                fetch('delete_submission.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ submission_id: submissionId })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Error deleting submission: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error deleting submission');
+                });
+            }
+        }
+
+        // Winner management functions
+        function deleteWinner(winnerId) {
+            if (confirm('Are you sure you want to delete this winner entry?')) {
+                fetch('delete_winner.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ winner_id: winnerId })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Error deleting winner: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error deleting winner');
                 });
             }
         }
@@ -1122,16 +1147,6 @@ $conn->close();
             document.getElementById('winner_user_id').value = userId;
             document.getElementById('winner_prize_details').value = '';
             new bootstrap.Modal(document.getElementById('markWinnerModal')).show();
-        }
-
-        function viewWinnerDetails(winner) {
-            // You can implement a detailed view for winners if needed
-            alert('Winner Details:\n\n' +
-                  'Competition: ' + winner.competition_title + '\n' +
-                  'Winner: ' + winner.full_name + '\n' +
-                  'Submission: ' + winner.submission_title + '\n' +
-                  'Prize: ' + winner.prize_details + '\n' +
-                  'Announced: ' + new Date(winner.announced_date).toLocaleString());
         }
     </script>
 </body>

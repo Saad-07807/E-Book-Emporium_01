@@ -149,6 +149,7 @@ if ($result && $result->num_rows > 0) {
         $winners[] = $row;
     }
 }
+
 // Get dealers
 $dealers = [];
 $result = $conn->query("SELECT * FROM dealers WHERE is_active = 1");
@@ -173,6 +174,7 @@ $cart = $_SESSION['cart'];
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>E-Book Emporium | Digital Library</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         /* Light Mode Variables */
         :root {
@@ -1363,6 +1365,53 @@ $cart = $_SESSION['cart'];
             color: var(--accent);
         }
         
+        /* Book Preview Modal */
+        .preview-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            display: none;
+        }
+
+        .preview-modal.active {
+            display: flex;
+        }
+
+        .preview-content {
+            background-color: var(--card-bg);
+            padding: 30px;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 600px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .preview-content h3 {
+            margin-bottom: 20px;
+            text-align: center;
+            color: var(--accent);
+        }
+        
+        .preview-text {
+            line-height: 1.6;
+            margin: 20px 0;
+            padding: 15px;
+            background-color: var(--secondary);
+            border-radius: 5px;
+            border-left: 4px solid var(--accent);
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
         /* Responsive Design */
         @media (max-width: 1200px) {
             .container {
@@ -1679,6 +1728,19 @@ $cart = $_SESSION['cart'];
         </div>
     </div>
 
+    <!-- Book Preview Modal -->
+    <div class="preview-modal" id="preview-modal">
+        <div class="preview-content">
+            <h3>Book Preview</h3>
+            <div class="preview-text" id="preview-text">
+                <!-- Preview content will be loaded here -->
+            </div>
+            <div class="d-flex justify-content-between mt-4">
+                <button class="btn btn-secondary" id="close-preview">Close</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Competition Participation Modal -->
     <div class="competition-modal" id="competition-modal">
         <div class="competition-form">
@@ -1788,7 +1850,9 @@ $cart = $_SESSION['cart'];
                                             <i class="fas fa-shopping-cart"></i> Login to Purchase
                                         </button>
                                     <?php endif; ?>
-                                    <button class="preview-btn"><i class="fas fa-eye"></i> Preview</button>
+                                    <button class="preview-btn" data-preview-content="<?php echo htmlspecialchars($book['preview_content'] ?? 'No preview available.'); ?>">
+                                        <i class="fas fa-eye"></i> Preview
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -1851,7 +1915,6 @@ $cart = $_SESSION['cart'];
                                             <i class="fas fa-trophy"></i> Login to Participate
                                         </button>
                                     <?php endif; ?>
-                                    <button class="preview-btn"><i class="fas fa-info-circle"></i> Details</button>
                                 </div>
                             </div>
                         </div>
@@ -1860,7 +1923,7 @@ $cart = $_SESSION['cart'];
             </div>
         </section>
 
-                <!-- Recent Winners -->
+        <!-- Recent Winners -->
         <section class="featured-books">
             <div class="container">
                 <h2 class="section-title">Recent Winners</h2>
@@ -1879,9 +1942,7 @@ $cart = $_SESSION['cart'];
                                     <p class="book-author"><?php echo htmlspecialchars($winner['competition_title']); ?></p>
                                     <p class="book-price">Winner</p>
                                     <div class="book-actions">
-                                        <button class="preview-btn">
-                                            <i class="fas fa-trophy"></i> View Details
-                                        </button>
+                                        <span class="badge bg-success">Winner</span>
                                     </div>
                                 </div>
                             </div>
@@ -2097,6 +2158,12 @@ $cart = $_SESSION['cart'];
         const competitionForm = document.getElementById('competition-form');
         const participateButtons = document.querySelectorAll('.participate-btn');
         const closeCompetitionButtons = document.querySelectorAll('.close-competition');
+
+        // Preview elements
+        const previewModal = document.getElementById('preview-modal');
+        const previewText = document.getElementById('preview-text');
+        const closePreview = document.getElementById('close-preview');
+        const previewButtons = document.querySelectorAll('.preview-btn');
 
         // Book data from PHP
         const books = <?php echo json_encode($all_books); ?>;
@@ -2322,6 +2389,18 @@ $cart = $_SESSION['cart'];
                 });
             }
 
+            // Preview functionality
+            previewButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const previewContent = this.getAttribute('data-preview-content');
+                    showPreviewModal(previewContent);
+                });
+            });
+
+            if (closePreview) {
+                closePreview.addEventListener('click', closePreviewModal);
+            }
+
             // Smooth scrolling for navigation links
             document.querySelectorAll('a[href^="#"]').forEach(anchor => {
                 anchor.addEventListener('click', function (e) {
@@ -2373,6 +2452,16 @@ $cart = $_SESSION['cart'];
         
         function closeCompetitionModal() {
             competitionModal.classList.remove('active');
+        }
+
+        // Preview modal functions
+        function showPreviewModal(content) {
+            previewText.textContent = content;
+            previewModal.classList.add('active');
+        }
+
+        function closePreviewModal() {
+            previewModal.classList.remove('active');
         }
 
         // Show category books
@@ -2433,7 +2522,9 @@ $cart = $_SESSION['cart'];
                             <button class="add-to-cart" data-id="${book.id}" data-title="${book.title}" data-price="${book.price}" data-image="${book.cover_image}">
                                 <i class="fas fa-shopping-cart"></i> Add to Cart
                             </button>
-                            <button class="preview-btn"><i class="fas fa-eye"></i> Preview</button>
+                            <button class="preview-btn" data-preview-content="${book.preview_content || 'No preview available.'}">
+                                <i class="fas fa-eye"></i> Preview
+                            </button>
                         </div>
                     </div>
                 `;
@@ -2451,6 +2542,13 @@ $cart = $_SESSION['cart'];
                     <?php else: ?>
                         showLoginModal();
                     <?php endif; ?>
+                });
+
+                // Add event listener to preview button
+                const previewBtn = bookCard.querySelector('.preview-btn');
+                previewBtn.addEventListener('click', function() {
+                    const previewContent = this.getAttribute('data-preview-content');
+                    showPreviewModal(previewContent);
                 });
                 
                 categoryBooksGrid.appendChild(bookCard);
