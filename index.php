@@ -290,7 +290,7 @@ $cart = $_SESSION['cart'];
         }
         
         .nav-item {
-            margin-left: 15px;
+            margin-left: 5px;
         }
         
         .nav-link {
