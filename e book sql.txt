@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS categories (
     icon VARCHAR(50)
 );
 
--- Books table
+-- Books table (removed is_free column)
 CREATE TABLE IF NOT EXISTS books (
     id INT AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
@@ -166,7 +166,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
     FOREIGN KEY (book_id) REFERENCES books(id)
 );
 
--- Insert categories
+-- Insert sample data
 INSERT INTO categories (name, description, icon) VALUES
 ('Fiction', 'Novels and fictional stories', 'fas fa-book-open'),
 ('Science', 'Scientific books and research', 'fas fa-flask'),
@@ -175,26 +175,24 @@ INSERT INTO categories (name, description, icon) VALUES
 ('Mystery', 'Mystery and detective stories', 'fas fa-user-secret'),
 ('Sci-Fi', 'Science fiction and fantasy', 'fas fa-rocket');
 
--- Insert books with actual image file names
+-- Updated book data with preview_content
 INSERT INTO books (title, author, description, preview_content, price, category_id, cover_image, featured) VALUES
-('Pride and Prejudice', 'Jane Austen', 'A romantic novel of manners that depicts English society in the early 19th century.', 'It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife. However little known the feelings or views of such a man may be on his first entering a neighbourhood, this truth is so well fixed in the minds of the surrounding families, that he is considered the rightful property of some one or other of their daughters.', 4.99, 4, 'pride and prejudice.jpg', 1),
-('A Brief History of Time', 'Stephen Hawking', 'Exploring the nature of time and the universe from the big bang to black holes.', 'We shall not cease from exploration, and the end of all our exploring will be to arrive where we started and know the place for the first time. Through the unknown, remembered gate when the last of earth left to discover is that which was the beginning; at the source of the longest river the voice of the hidden waterfall.', 8.99, 2, 'a brief history of time.jpg', 1),
-('The Art of War', 'Sun Tzu', 'Ancient Chinese military treatise that has influenced both Eastern and Western military thinking.', 'The art of war is of vital importance to the State. It is a matter of life and death, a road either to safety or to ruin. Hence it is a subject of inquiry which can on no account be neglected. The art of war, then, is governed by five constant factors, to be taken into account in ones deliberations.', 5.99, 3, 'the art of war.jpg', 1),
-('Romeo and Juliet', 'William Shakespeare', 'Tragic love story about two young star-crossed lovers whose deaths ultimately reconcile their feuding families.', 'Two households, both alike in dignity, In fair Verona, where we lay our scene, From ancient grudge break to new mutiny, Where civil blood makes civil hands unclean. From forth the fatal loins of these two foes A pair of star-cross''d lovers take their life; Whose misadventured piteous overthrows Do with their death bury their parents'' strife.', 0.00, 4, 'romeo and juilet.jpg', 0),
-('Sherlock Holmes: The Complete Novels and Stories', 'Arthur Conan Doyle', 'Complete collection of detective stories featuring the brilliant Sherlock Holmes and his companion Dr. Watson.', 'To Sherlock Holmes she is always the woman. I have seldom heard him mention her under any other name. In his eyes she eclipses and predominates the whole of her sex. It was not that he felt any emotion akin to love for Irene Adler. All emotions, and that one particularly, were abhorrent to his cold, precise but admirably balanced mind.', 6.99, 5, 'sherlock holmes.jpg', 1),
-('1984', 'George Orwell', 'Dystopian social science fiction novel about totalitarian control and surveillance society.', 'It was a bright cold day in April, and the clocks were striking thirteen. Winston Smith, his chin nuzzled into his breast in an effort to escape the vile wind, slipped quickly through the glass doors of Victory Mansions, though not quickly enough to prevent a swirl of gritty dust from entering along with him.', 6.49, 6, '1984.webp', 1);
+('Pride and Prejudice', 'Jane Austen', 'A romantic novel of manners', 'It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife. However little known the feelings or views of such a man may be on his first entering a neighbourhood, this truth is so well fixed in the minds of the surrounding families, that he is considered the rightful property of some one or other of their daughters.', 4.99, 1, 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 1),
+('A Brief History of Time', 'Stephen Hawking', 'Exploring the nature of time and universe', 'We shall not cease from exploration, and the end of all our exploring will be to arrive where we started and know the place for the first time. Through the unknown, remembered gate when the last of earth left to discover is that which was the beginning; at the source of the longest river the voice of the hidden waterfall.', 8.99, 2, 'https://images.unsplash.com/photo-1531901599638-a89bb60971a3?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 1),
+('The Art of War', 'Sun Tzu', 'Ancient Chinese military treatise', 'The art of war is of vital importance to the State. It is a matter of life and death, a road either to safety or to ruin. Hence it is a subject of inquiry which can on no account be neglected. The art of war, then, is governed by five constant factors, to be taken into account in ones deliberations.', 5.99, 3, 'https://images.unsplash.com/photo-1512820790803-83ca734da794?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 1),
+('Romeo and Juliet', 'William Shakespeare', 'Tragic love story', 'Two households, both alike in dignity, In fair Verona, where we lay our scene, From ancient grudge break to new mutiny, Where civil blood makes civil hands unclean. From forth the fatal loins of these two foes A pair of star-cross''d lovers take their life; Whose misadventured piteous overthrows Do with their death bury their parents'' strife.', 0.00, 4, 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 0),
+('Sherlock Holmes', 'Arthur Conan Doyle', 'Detective stories collection', 'To Sherlock Holmes she is always the woman. I have seldom heard him mention her under any other name. In his eyes she eclipses and predominates the whole of her sex. It was not that he felt any emotion akin to love for Irene Adler. All emotions, and that one particularly, were abhorrent to his cold, precise but admirably balanced mind.', 6.99, 5, 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 1),
+('1984', 'George Orwell', 'Dystopian social science fiction', 'It was a bright cold day in April, and the clocks were striking thirteen. Winston Smith, his chin nuzzled into his breast in an effort to escape the vile wind, slipped quickly through the glass doors of Victory Mansions, though not quickly enough to prevent a swirl of gritty dust from entering along with him.', 6.49, 6, 'https://images.unsplash.com/photo-1516979187457-637abb4f9353?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80', 1);
 
--- Insert competitions
 INSERT INTO competitions (title, description, type, start_date, end_date, rules, prizes, status) VALUES
 ('Summer Story Writing', 'Write an engaging short story for summer reading', 'story', '2024-06-01', '2024-08-31', 'Word limit: 2000-5000 words. Original content only.', 'First prize: $500 + Publication', 'active'),
 ('Essay Competition 2024', 'Annual essay writing competition on technology impact', 'essay', '2024-09-01', '2024-10-31', 'Word limit: 1000-2000 words. Proper citations required.', 'Winners get book bundles and certificates', 'upcoming');
 
--- Insert dealers
 INSERT INTO dealers (name, address, phone, email, city, is_active) VALUES
 ('City Book Store', '123 Main Street, Downtown', '(555) 123-4567', 'citybooks@example.com', 'New York', 1),
 ('Readers Paradise', '456 Oak Avenue, Westside', '(555) 987-6543', 'readers@example.com', 'Los Angeles', 1),
 ('Knowledge Hub', '789 Pine Road, East End', '(555) 456-7890', 'knowledge@example.com', 'Chicago', 1);
 
--- Create admin user (password: password)
+-- Create admin user
 INSERT INTO users (username, email, password, full_name, role) VALUES 
 ('admin', 'admin@ebookemporium.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'System Administrator', 'admin');
