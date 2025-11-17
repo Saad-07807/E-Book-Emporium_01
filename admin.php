@@ -1,3 +1,4 @@
+
 <?php
 require_once 'config.php';
 
@@ -421,9 +422,6 @@ $conn->close();
                                         </span>
                                     </td>
                                     <td class="table-actions">
-                                        <button class="btn btn-sm btn-outline-primary" onclick="editBook(<?php echo htmlspecialchars(json_encode($book)); ?>)">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
                                         <button class="btn btn-sm btn-outline-danger" onclick="deleteBook(<?php echo $book['id']; ?>)">
                                             <i class="fas fa-trash"></i>
                                         </button>
@@ -726,116 +724,6 @@ $conn->close();
         </div>
     </div>
 
-    <!-- Edit Book Modal -->
-    <div class="modal fade" id="editBookModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Edit Book</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form method="POST">
-                    <div class="modal-body">
-                        <input type="hidden" name="book_id" id="edit_book_id">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">Title</label>
-                                    <input type="text" class="form-control" name="title" id="edit_title" required>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">Author</label>
-                                    <input type="text" class="form-control" name="author" id="edit_author" required>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Description</label>
-                            <textarea class="form-control" name="description" id="edit_description" rows="3" required></textarea>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Preview Content</label>
-                            <textarea class="form-control" name="preview_content" id="edit_preview_content" rows="4" required></textarea>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label class="form-label">Price ($)</label>
-                                    <input type="number" class="form-control" name="price" id="edit_price" step="0.01" required>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label class="form-label">Category</label>
-                                    <select class="form-control" name="category_id" id="edit_category_id" required>
-                                        <?php foreach($categories as $category): ?>
-                                        <option value="<?php echo $category['id']; ?>"><?php echo htmlspecialchars($category['name']); ?></option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label class="form-label">Stock Quantity</label>
-                                    <input type="number" class="form-control" name="stock_quantity" id="edit_stock_quantity" value="0">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label class="form-label">Pages</label>
-                                    <input type="number" class="form-control" name="pages" id="edit_pages">
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label class="form-label">Publication Year</label>
-                                    <input type="number" class="form-control" name="publication_year" id="edit_publication_year" min="1900" max="2030">
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label class="form-label">ISBN</label>
-                                    <input type="text" class="form-control" name="isbn" id="edit_isbn">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="form-check mb-3">
-                                    <input class="form-check-input" type="checkbox" name="is_free" id="edit_is_free">
-                                    <label class="form-check-label" for="edit_is_free">Free Book</label>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="form-check mb-3">
-                                    <input class="form-check-input" type="checkbox" name="featured" id="edit_featured">
-                                    <label class="form-check-label" for="edit_featured">Featured Book</label>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label class="form-label">Status</label>
-                                    <select class="form-control" name="status" id="edit_status" required>
-                                        <option value="active">Active</option>
-                                        <option value="inactive">Inactive</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary" name="update_book">Update Book</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
     <!-- Mark as Winner Modal -->
     <div class="modal fade" id="markWinnerModal" tabindex="-1">
         <div class="modal-dialog">
@@ -969,25 +857,6 @@ $conn->close();
         }
 
         // Book management functions
-        function editBook(book) {
-            document.getElementById('edit_book_id').value = book.id;
-            document.getElementById('edit_title').value = book.title;
-            document.getElementById('edit_author').value = book.author;
-            document.getElementById('edit_description').value = book.description;
-            document.getElementById('edit_preview_content').value = book.preview_content || '';
-            document.getElementById('edit_price').value = book.price;
-            document.getElementById('edit_category_id').value = book.category_id;
-            document.getElementById('edit_stock_quantity').value = book.stock_quantity;
-            document.getElementById('edit_pages').value = book.pages || '';
-            document.getElementById('edit_publication_year').value = book.publication_year || '';
-            document.getElementById('edit_isbn').value = book.isbn || '';
-            document.getElementById('edit_is_free').checked = book.price == 0.00;
-            document.getElementById('edit_featured').checked = book.featured == 1;
-            document.getElementById('edit_status').value = book.status;
-            
-            new bootstrap.Modal(document.getElementById('editBookModal')).show();
-        }
-
         function deleteBook(bookId) {
             if (confirm('Are you sure you want to delete this book?')) {
                 fetch('delete_book.php', {
