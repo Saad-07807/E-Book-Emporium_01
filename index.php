@@ -1636,19 +1636,10 @@ $cart = $_SESSION['cart'];
                                     </a>
                                     <div class="dropdown-divider"></div>
                                 <?php endif; ?>
-                                <a href="dashboard.php" class="dropdown-item">
-                                    <i class="fas fa-tachometer-alt"></i> Dashboard
-                                </a>
-                                <a href="profile.php" class="dropdown-item">
-                                    <i class="fas fa-user"></i> Profile
-                                </a>
-                                <a href="orders.php" class="dropdown-item">
-                                    <i class="fas fa-shopping-bag"></i> My Orders
-                                </a>
-                                <div class="dropdown-divider"></div>
                                 <a href="?logout=true" class="dropdown-item">
                                     <i class="fas fa-sign-out-alt"></i> Logout
                                 </a>
+                                  <div class="dropdown-divider"></div>
                             </div>
                         </div>
                         
