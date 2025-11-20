@@ -1,3 +1,4 @@
+
 <?php
 require_once 'config.php';
 
@@ -12,7 +13,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $book_id = intval($input['book_id']);
     
     $conn = getDBConnection();
-    $stmt = $conn->prepare("UPDATE books SET status = 'inactive' WHERE id = ?");
+    
+    // Delete related records first to maintain referential integrity
+    $conn->query("DELETE FROM order_items WHERE book_id = $book_id");
+    $conn->query("DELETE FROM book_reviews WHERE book_id = $book_id");
+    $conn->query("DELETE FROM subscriptions WHERE book_id = $book_id");
+    
+    // Now delete the book
+    $stmt = $conn->prepare("DELETE FROM books WHERE id = ?");
     $stmt->bind_param("i", $book_id);
     
     if ($stmt->execute()) {

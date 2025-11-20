@@ -7,6 +7,14 @@ define('DB_USER', 'root');
 define('DB_PASS', '');
 define('DB_NAME', 'ebook_system');
 
+// Email configuration
+define('SMTP_HOST', 'smtp.gmail.com');
+define('SMTP_PORT', 587);
+define('SMTP_USERNAME', 'your-email@gmail.com');
+define('SMTP_PASSWORD', 'your-app-password');
+define('SMTP_FROM', 'noreply@ebookemporium.com');
+define('SMTP_FROM_NAME', 'E-Book Emporium');
+
 // Create connection
 function getDBConnection() {
     $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
@@ -52,5 +60,19 @@ function requireAdmin() {
 // Check if book is free
 function isBookFree($price) {
     return $price == 0.00;
+}
+
+// Send email function
+function sendEmail($to, $subject, $message) {
+    $headers = "From: " . SMTP_FROM . "\r\n";
+    $headers .= "Reply-To: " . SMTP_FROM . "\r\n";
+    $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+    
+    return mail($to, $subject, $message, $headers);
+}
+
+// Generate verification code
+function generateVerificationCode() {
+    return bin2hex(random_bytes(16));
 }
 ?>

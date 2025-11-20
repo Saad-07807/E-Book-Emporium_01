@@ -7,6 +7,14 @@ define('DB_USER', 'root');
 define('DB_PASS', '');
 define('DB_NAME', 'ebook_system');
 
+// Email configuration
+define('SMTP_HOST', 'smtp.gmail.com');
+define('SMTP_PORT', 587);
+define('SMTP_USERNAME', 'your-email@gmail.com');
+define('SMTP_PASSWORD', 'your-app-password');
+define('SMTP_FROM', 'noreply@ebookemporium.com');
+define('SMTP_FROM_NAME', 'E-Book Emporium');
+
 // Create database connection
 function getDBConnection() {
     $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
@@ -28,61 +36,154 @@ function isAdmin() {
     return isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin';
 }
 
-// Handle login
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
-    $email = trim($_POST['email']);
-    $password = $_POST['password'];
+// Send email function
+function sendEmail($to, $subject, $message) {
+    $headers = "From: " . SMTP_FROM . "\r\n";
+    $headers .= "Reply-To: " . SMTP_FROM . "\r\n";
+    $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
     
-    $conn = getDBConnection();
-    $stmt = $conn->prepare("SELECT id, username, full_name, password, role, email FROM users WHERE email = ?");
-    $stmt->bind_param("s", $email);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    if ($result->num_rows === 1) {
-        $user = $result->fetch_assoc();
-        // For demo purposes, using simple password verification
-        // In production, use password_verify($password, $user['password'])
-        if ($password === 'password' || password_verify($password, $user['password'])) {
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['user_name'] = $user['full_name'];
-            $_SESSION['user_role'] = $user['role'];
-            $_SESSION['username'] = $user['username'];
-            $_SESSION['user_email'] = $user['email'];
-        }
-    }
-    $stmt->close();
-    $conn->close();
+    return mail($to, $subject, $message, $headers);
 }
 
-// Handle registration
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
-    $username = trim($_POST['username']);
-    $email = trim($_POST['email']);
-    $password = $_POST['password'];
-    $full_name = trim($_POST['full_name']);
-    
-    $conn = getDBConnection();
-    $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-    
-    $stmt = $conn->prepare("INSERT INTO users (username, email, password, full_name) VALUES (?, ?, ?, ?)");
-    $stmt->bind_param("ssss", $username, $email, $hashed_password, $full_name);
-    
-    if ($stmt->execute()) {
-        $_SESSION['user_id'] = $conn->insert_id;
-        $_SESSION['user_name'] = $full_name;
-        $_SESSION['username'] = $username;
-        $_SESSION['user_email'] = $email;
-        $_SESSION['user_role'] = 'user';
-    }
-    $stmt->close();
-    $conn->close();
+// Generate verification code
+function generateVerificationCode() {
+    return rand(100000, 999999); // 6-digit code
 }
 
 // Handle logout
 if (isset($_GET['logout'])) {
     session_destroy();
     header("Location: index.php");
+    exit();
+}
+
+// Handle login
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
+    $email = trim($_POST['email']);
+    $password = $_POST['password'];
+    
+    $conn = getDBConnection();
+    $stmt = $conn->prepare("SELECT id, username, full_name, password, role, email, email_verified FROM users WHERE email = ?");
+    $stmt->bind_param("s", $email);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($result->num_rows === 1) {
+        $user = $result->fetch_assoc();
+        if (password_verify($password, $user['password'])) {
+            if ($user['email_verified']) {
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['user_name'] = $user['full_name'];
+                $_SESSION['user_role'] = $user['role'];
+                $_SESSION['username'] = $user['username'];
+                $_SESSION['user_email'] = $user['email'];
+                
+                header("Location: index.php?message=login_success");
+                exit();
+            } else {
+                header("Location: index.php?error=email_not_verified");
+                exit();
+            }
+        }
+    }
+    $stmt->close();
+    $conn->close();
+    
+    header("Location: index.php?error=login_failed");
+    exit();
+}
+
+// Handle checkout
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['checkout'])) {
+    if (!isLoggedIn()) {
+        header("Location: index.php?error=login_required");
+        exit();
+    }
+    
+    $conn = getDBConnection();
+    
+    $user_id = $_SESSION['user_id'];
+    $total_amount = 0;
+    
+    // Calculate total from cart
+    foreach ($_SESSION['cart'] as $item) {
+        $total_amount += $item['price'] * $item['quantity'];
+    }
+    
+    $format = $_POST['format'] ?? 'pdf'; // Get format from form
+    $shipping_address = trim($_POST['shipping_address']);
+    $customer_name = trim($_POST['customer_name']);
+    $customer_email = trim($_POST['customer_email']);
+    $customer_phone = trim($_POST['customer_phone']);
+    
+    // Calculate shipping charges based on format
+    $shipping_charges = 0;
+    switch ($format) {
+        case 'hardcopy':
+            $shipping_charges = 5.99;
+            break;
+        case 'cd':
+            $shipping_charges = 3.99;
+            break;
+        case 'pdf':
+        default:
+            $shipping_charges = 0;
+            break;
+    }
+    
+    $total_amount += $shipping_charges;
+    
+    // Create order
+    $stmt = $conn->prepare("INSERT INTO orders (user_id, total_amount, format, shipping_charges, shipping_address, customer_name, customer_email, customer_phone, status, payment_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'pending')");
+    $stmt->bind_param("idssssss", $user_id, $total_amount, $format, $shipping_charges, $shipping_address, $customer_name, $customer_email, $customer_phone);
+    
+    if ($stmt->execute()) {
+        $order_id = $conn->insert_id;
+        
+        // Add order items
+        foreach ($_SESSION['cart'] as $item) {
+            $book_stmt = $conn->prepare("INSERT INTO order_items (order_id, book_id, quantity, price) VALUES (?, ?, ?, ?)");
+            $book_stmt->bind_param("iiid", $order_id, $item['id'], $item['quantity'], $item['price']);
+            $book_stmt->execute();
+            $book_stmt->close();
+        }
+        
+        // Clear cart
+        $_SESSION['cart'] = [];
+        
+        // Send confirmation email
+        $subject = "Order Confirmation - E-Book Emporium";
+        $format_display = ucfirst($format);
+        $shipping_display = $shipping_charges > 0 ? " (+$$shipping_charges shipping)" : "";
+        
+        $message = "
+            <html>
+            <head>
+                <title>Order Confirmation</title>
+            </head>
+            <body>
+                <h2>Thank you for your order!</h2>
+                <p>Your order #$order_id has been received and is being processed.</p>
+                <p><strong>Order Details:</strong></p>
+                <ul>
+                    <li>Order Total: $$total_amount</li>
+                    <li>Format: $format_display$shipping_display</li>
+                    <li>Shipping Address: $shipping_address</li>
+                </ul>
+                <p>We will notify you when your order ships.</p>
+            </body>
+            </html>
+        ";
+        
+        sendEmail($customer_email, $subject, $message);
+        
+        header("Location: index.php?message=order_success&order_id=$order_id");
+    } else {
+        header("Location: index.php?error=order_failed");
+    }
+    
+    $stmt->close();
+    $conn->close();
     exit();
 }
 
@@ -124,7 +225,7 @@ if ($result) {
 
 // Get competitions
 $competitions = [];
-$result = $conn->query("SELECT * FROM competitions WHERE status IN ('active', 'upcoming') ORDER BY start_date ASC LIMIT 3");
+$result = $conn->query("SELECT * FROM competitions WHERE status IN ('active', 'upcoming') AND status != 'deleted' ORDER BY start_date ASC LIMIT 3");
 if ($result) {
     while($row = $result->fetch_assoc()) {
         $competitions[] = $row;
@@ -143,7 +244,6 @@ $result = $conn->query("
 ");
 if ($result && $result->num_rows > 0) {
     while($row = $result->fetch_assoc()) {
-        // Ensure all required fields exist
         $row['full_name'] = $row['full_name'] ?? 'Unknown Winner';
         $row['competition_title'] = $row['competition_title'] ?? 'Competition';
         $winners[] = $row;
@@ -1102,6 +1202,17 @@ $cart = $_SESSION['cart'];
             border-bottom: 1px solid var(--light);
         }
         
+        .cart-header h3 {
+            margin: 0;
+            flex-grow: 1;
+        }
+        
+        .cart-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
         .close-cart {
             background: none;
             border: none;
@@ -1109,10 +1220,17 @@ $cart = $_SESSION['cart'];
             cursor: pointer;
             color: var(--text-light);
             transition: color 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            border-radius: 4px;
         }
         
         .close-cart:hover {
             color: var(--text);
+            background-color: rgba(139, 90, 43, 0.1);
         }
         
         .cart-items {
@@ -1191,10 +1309,13 @@ $cart = $_SESSION['cart'];
             cursor: pointer;
             margin-left: auto;
             transition: color 0.3s;
+            padding: 5px;
+            border-radius: 4px;
         }
         
         .remove-item:hover {
             color: var(--accent);
+            background-color: rgba(139, 90, 43, 0.1);
         }
         
         .cart-total {
@@ -1208,15 +1329,20 @@ $cart = $_SESSION['cart'];
         }
         
         .checkout-btn {
-            width: 100%;
             background-color: var(--success);
             color: white;
             border: none;
-            padding: 12px;
+            padding: 12px 20px;
             border-radius: 4px;
             font-weight: 600;
             cursor: pointer;
             transition: background-color 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            text-decoration: none;
+            white-space: nowrap;
         }
         
         .checkout-btn:hover {
@@ -1283,6 +1409,7 @@ $cart = $_SESSION['cart'];
             width: 100%;
             max-width: 400px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            position: relative;
         }
 
         .auth-form h3 {
@@ -1357,6 +1484,7 @@ $cart = $_SESSION['cart'];
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
             max-height: 90vh;
             overflow-y: auto;
+            position: relative;
         }
 
         .competition-form h3 {
@@ -1393,6 +1521,7 @@ $cart = $_SESSION['cart'];
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
             max-height: 80vh;
             overflow-y: auto;
+            position: relative;
         }
 
         .preview-content h3 {
@@ -1410,6 +1539,139 @@ $cart = $_SESSION['cart'];
             border-left: 4px solid var(--accent);
             max-height: 300px;
             overflow-y: auto;
+        }
+        
+        /* Toast Notifications */
+        .toast-container {
+            z-index: 9999;
+        }
+        
+        .toast {
+            border: 1px solid var(--light);
+            background-color: var(--card-bg);
+        }
+        
+        .toast-header {
+            background-color: var(--accent);
+            color: white;
+        }
+        
+        /* Error Messages */
+        .error-message {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .success-message {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            border: 1px solid #c3e6cb;
+        }
+
+        /* Close buttons for forms */
+        .close-auth, .close-competition, .close-preview {
+            background: none;
+            border: none;
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 20px;
+            cursor: pointer;
+            color: var(--text);
+            z-index: 1050;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+
+        .close-auth:hover, .close-competition:hover, .close-preview:hover {
+            background-color: var(--light);
+            color: var(--accent);
+        }
+
+        /* Verification code display */
+        .verification-code-display {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--accent);
+            padding: 10px;
+            background: var(--secondary);
+            border-radius: 5px;
+            margin: 10px 0;
+            text-align: center;
+            border: 2px solid var(--accent);
+        }
+
+        /* Checkout Modal Styles */
+        .checkout-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            display: none;
+        }
+
+        .checkout-modal.active {
+            display: flex;
+        }
+
+        .checkout-form {
+            background-color: var(--card-bg);
+            padding: 30px;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .checkout-form h3 {
+            margin-bottom: 20px;
+            text-align: center;
+            color: var(--accent);
+        }
+
+        .format-option {
+            border: 2px solid var(--light);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: var(--card-bg);
+        }
+        
+        .format-option.selected {
+            border-color: var(--accent);
+            background-color: rgba(112, 61, 12, 0.1);
+        }
+        
+        .format-option input[type="radio"] {
+            margin-right: 10px;
+        }
+        
+        .additional-charge {
+            color: var(--success);
+            font-weight: bold;
         }
         
         /* Responsive Design */
@@ -1487,6 +1749,22 @@ $cart = $_SESSION['cart'];
             .about-container {
                 flex-direction: column;
             }
+            
+            .cart-modal {
+                width: 100%;
+                right: -100%;
+            }
+            
+            .cart-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            
+            .cart-header-actions {
+                width: 100%;
+                justify-content: space-between;
+            }
         }
         
         @media (max-width: 768px) {
@@ -1508,11 +1786,6 @@ $cart = $_SESSION['cart'];
             
             .categories-grid {
                 grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-            }
-            
-            .cart-modal {
-                width: 100%;
-                right: -100%;
             }
             
             .stat-number {
@@ -1561,6 +1834,16 @@ $cart = $_SESSION['cart'];
             .add-to-cart, .preview-btn {
                 width: 100%;
                 margin-right: 0;
+            }
+            
+            .cart-header-actions {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .checkout-btn {
+                width: 100%;
+                justify-content: center;
             }
         }
     </style>
@@ -1639,7 +1922,6 @@ $cart = $_SESSION['cart'];
                                 <a href="?logout=true" class="dropdown-item">
                                     <i class="fas fa-sign-out-alt"></i> Logout
                                 </a>
-                                  <div class="dropdown-divider"></div>
                             </div>
                         </div>
                         
@@ -1667,10 +1949,73 @@ $cart = $_SESSION['cart'];
         </div>
     </div>
 
+    <!-- Toast Notification Container -->
+    <div class="toast-container position-fixed top-0 end-0 p-3">
+        <div id="loginToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header bg-success text-white">
+                <i class="fas fa-check-circle me-2"></i>
+                <strong class="me-auto">Success</strong>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body">
+                Successfully logged in!
+            </div>
+        </div>
+        
+        <div id="registerToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header bg-success text-white">
+                <i class="fas fa-check-circle me-2"></i>
+                <strong class="me-auto">Success</strong>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body">
+                Registration successful! Welcome to E-Book Emporium.
+            </div>
+        </div>
+        
+        <div id="verifiedToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header bg-success text-white">
+                <i class="fas fa-check-circle me-2"></i>
+                <strong class="me-auto">Success</strong>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body">
+                Email verified successfully! You are now logged in.
+            </div>
+        </div>
+        
+        <div id="orderToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header bg-success text-white">
+                <i class="fas fa-check-circle me-2"></i>
+                <strong class="me-auto">Success</strong>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body">
+                Order placed successfully! Thank you for your purchase.
+            </div>
+        </div>
+        
+        <div id="errorToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header bg-danger text-white">
+                <i class="fas fa-exclamation-circle me-2"></i>
+                <strong class="me-auto">Error</strong>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body" id="errorToastMessage">
+                An error occurred.
+            </div>
+        </div>
+    </div>
+
     <!-- Login Modal -->
     <div class="auth-modal" id="login-modal">
         <div class="auth-form">
             <h3>Login to Your Account</h3>
+            <?php if(isset($_GET['error']) && $_GET['error'] === 'email_not_verified'): ?>
+                <div class="error-message">
+                    Please verify your email address before logging in.
+                </div>
+            <?php endif; ?>
             <form method="POST">
                 <div class="form-group">
                     <label for="login-email">Email</label>
@@ -1685,7 +2030,7 @@ $cart = $_SESSION['cart'];
             <div class="auth-switch">
                 Don't have an account? <a href="#" id="switch-to-register">Register here</a>
             </div>
-            <button class="close-auth" style="background: none; border: none; position: absolute; top: 10px; right: 15px; font-size: 20px; cursor: pointer;">&times;</button>
+            <button class="close-auth">&times;</button>
         </div>
     </div>
 
@@ -1693,7 +2038,7 @@ $cart = $_SESSION['cart'];
     <div class="auth-modal" id="register-modal">
         <div class="auth-form">
             <h3>Create New Account</h3>
-            <form method="POST">
+            <form id="register-form">
                 <div class="form-group">
                     <label for="register-username">Username</label>
                     <input type="text" id="register-username" name="username" required>
@@ -1710,12 +2055,22 @@ $cart = $_SESSION['cart'];
                     <label for="register-fullname">Full Name</label>
                     <input type="text" id="register-fullname" name="full_name" required>
                 </div>
-                <button type="submit" class="btn" name="register" style="width: 100%;">Register</button>
+                <button type="button" class="btn" id="send-verification-btn" style="width: 100%;">Send Verification Code</button>
+                
+                <div id="verification-section" style="display: none; margin-top: 20px;">
+                    <div class="form-group">
+                        <label for="verification-code">Verification Code</label>
+                        <input type="text" id="verification-code" name="verification_code" required>
+                    </div>
+                    <button type="button" class="btn" id="verify-and-register-btn" style="width: 100%;">Verify and Register</button>
+                </div>
+                
+                <div id="verification-display" style="display: none;"></div>
             </form>
             <div class="auth-switch">
                 Already have an account? <a href="#" id="switch-to-login">Login here</a>
             </div>
-            <button class="close-auth" style="background: none; border: none; position: absolute; top: 10px; right: 15px; font-size: 20px; cursor: pointer;">&times;</button>
+            <button class="close-auth">&times;</button>
         </div>
     </div>
 
@@ -1729,6 +2084,7 @@ $cart = $_SESSION['cart'];
             <div class="d-flex justify-content-between mt-4">
                 <button class="btn btn-secondary" id="close-preview">Close</button>
             </div>
+            <button class="close-preview">&times;</button>
         </div>
     </div>
 
@@ -1763,7 +2119,83 @@ $cart = $_SESSION['cart'];
                 <input type="hidden" id="competition-id" name="competition_id">
                 <button type="submit" class="btn" style="width: 100%;">Submit Entry</button>
             </form>
-            <button class="close-competition" style="background: none; border: none; position: absolute; top: 10px; right: 15px; font-size: 20px; cursor: pointer;">&times;</button>
+            <button class="close-competition">&times;</button>
+        </div>
+    </div>
+
+    <!-- Checkout Modal -->
+    <div class="checkout-modal" id="checkout-modal">
+        <div class="checkout-form">
+            <h3>Checkout</h3>
+            <form method="POST" id="checkout-form">
+                <input type="hidden" name="checkout" value="1">
+                <div class="form-group">
+                    <label for="customer-name">Full Name</label>
+                    <input type="text" id="customer-name" name="customer_name" value="<?php echo isLoggedIn() ? $_SESSION['user_name'] : ''; ?>" required>
+                </div>
+                <div class="form-group">
+                    <label for="customer-email">Email</label>
+                    <input type="email" id="customer-email" name="customer_email" value="<?php echo isLoggedIn() ? $_SESSION['user_email'] : ''; ?>" required>
+                </div>
+                <div class="form-group">
+                    <label for="customer-phone">Phone Number</label>
+                    <input type="tel" id="customer-phone" name="customer_phone" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Select Format *</label>
+                    <div class="format-options">
+                        <div class="format-option selected" onclick="selectCheckoutFormat('pdf')">
+                            <input type="radio" name="format" value="pdf" id="checkout-format-pdf" checked>
+                            <label for="checkout-format-pdf" class="mb-0">
+                                <strong>PDF (Digital Download)</strong>
+                                <div class="text-muted">Instant access after purchase</div>
+                                <div class="additional-charge">+ $0.00</div>
+                            </label>
+                        </div>
+                        <div class="format-option" onclick="selectCheckoutFormat('hardcopy')">
+                            <input type="radio" name="format" value="hardcopy" id="checkout-format-hardcopy">
+                            <label for="checkout-format-hardcopy" class="mb-0">
+                                <strong>Hard Copy</strong>
+                                <div class="text-muted">Printed book delivered to your address</div>
+                                <div class="additional-charge">+ $5.99 (Shipping included)</div>
+                            </label>
+                        </div>
+                        <div class="format-option" onclick="selectCheckoutFormat('cd')">
+                            <input type="radio" name="format" value="cd" id="checkout-format-cd">
+                            <label for="checkout-format-cd" class="mb-0">
+                                <strong>CD</strong>
+                                <div class="text-muted">Physical CD with eBook files</div>
+                                <div class="additional-charge">+ $3.99 (Shipping included)</div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="shipping-address">Shipping Address</label>
+                    <textarea id="shipping-address" name="shipping_address" rows="3" required placeholder="Enter your complete shipping address"></textarea>
+                </div>
+                <div class="cart-summary" style="background: var(--secondary); padding: 15px; border-radius: 5px; margin: 15px 0;">
+                    <h5>Order Summary</h5>
+                    <div id="checkout-items">
+                        <!-- Cart items will be populated here -->
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Subtotal:</span>
+                        <span id="checkout-subtotal">$0.00</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Format Charge:</span>
+                        <span id="checkout-format-charge">$0.00</span>
+                    </div>
+                    <div class="cart-total" id="checkout-total" style="border-top: 1px solid var(--light); padding-top: 10px; margin-top: 10px;">
+                        Total: $0.00
+                    </div>
+                </div>
+                <button type="submit" class="btn" style="width: 100%;">Place Order</button>
+            </form>
+            <button class="close-auth">&times;</button>
         </div>
     </div>
 
@@ -1923,7 +2355,6 @@ $cart = $_SESSION['cart'];
                     $winners_display = false;
                     if(!empty($winners)): 
                         foreach($winners as $winner): 
-                            // Check if required fields exist
                             if(isset($winner['full_name']) && isset($winner['competition_title'])):
                                 $winners_display = true;
                     ?>
@@ -2051,11 +2482,18 @@ $cart = $_SESSION['cart'];
         </div>
     </footer>
 
-    <!-- Cart Modal -->
+     <!-- Cart Modal -->
     <div class="cart-modal" id="cart-modal">
         <div class="cart-header">
             <h3>Your Cart</h3>
-            <button class="close-cart" id="close-cart">&times;</button>
+            <div class="cart-header-actions">
+                <?php if(!empty($cart)): ?>
+                    <button class="checkout-btn" id="checkout-btn" onclick="showCheckoutModal()">
+                        <i class="fas fa-shopping-bag"></i> Proceed to Checkout
+                    </button>
+                <?php endif; ?>
+                <button class="close-cart" id="close-cart">&times;</button>
+            </div>
         </div>
         <div class="cart-items" id="cart-items">
             <?php if(empty($cart)): ?>
@@ -2092,16 +2530,18 @@ $cart = $_SESSION['cart'];
         </div>
         <?php if(!empty($cart)): ?>
             <div class="cart-total" id="cart-total">Total: $<?php echo number_format($total, 2); ?></div>
-            <button class="checkout-btn" id="checkout-btn">Proceed to Checkout</button>
+            <div class="text-center mt-2">
+                <small class="text-muted">Additional charges may apply based on format selection</small>
+            </div>
         <?php endif; ?>
     </div>
-
     <!-- Added to Cart Notification -->
     <div class="cart-notification" id="cart-notification">
         <i class="fas fa-check-circle"></i>
         <span>Item added to cart!</span>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // DOM Elements
         const headerToggler = document.getElementById('header-toggler');
@@ -2154,7 +2594,23 @@ $cart = $_SESSION['cart'];
         const previewModal = document.getElementById('preview-modal');
         const previewText = document.getElementById('preview-text');
         const closePreview = document.getElementById('close-preview');
+        const closePreviewBtn = document.querySelector('.close-preview');
         const previewButtons = document.querySelectorAll('.preview-btn');
+
+        // Checkout elements
+        const checkoutModal = document.getElementById('checkout-modal');
+        const checkoutForm = document.getElementById('checkout-form');
+        const checkoutItems = document.getElementById('checkout-items');
+        const checkoutTotal = document.getElementById('checkout-total');
+        const checkoutSubtotal = document.getElementById('checkout-subtotal');
+        const checkoutFormatCharge = document.getElementById('checkout-format-charge');
+
+        // Registration elements
+        const registerForm = document.getElementById('register-form');
+        const sendVerificationBtn = document.getElementById('send-verification-btn');
+        const verificationSection = document.getElementById('verification-section');
+        const verificationDisplay = document.getElementById('verification-display');
+        const verifyAndRegisterBtn = document.getElementById('verify-and-register-btn');
 
         // Book data from PHP
         const books = <?php echo json_encode($all_books); ?>;
@@ -2163,10 +2619,71 @@ $cart = $_SESSION['cart'];
         // Cart state from PHP session
         let cart = <?php echo json_encode($cart); ?>;
 
+        // Format charges
+        const formatCharges = {
+            'pdf': 0,
+            'hardcopy': 5.99,
+            'cd': 3.99
+        };
+
         // Initialize the page
         document.addEventListener('DOMContentLoaded', function() {
             // Update cart UI
             updateCartUI();
+
+            // Show toast notifications based on URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            if (urlParams.has('message')) {
+                const message = urlParams.get('message');
+                let toastElement;
+                
+                switch(message) {
+                    case 'login_success':
+                        toastElement = document.getElementById('loginToast');
+                        break;
+                    case 'email_verified':
+                        toastElement = document.getElementById('verifiedToast');
+                        break;
+                    case 'order_success':
+                        toastElement = document.getElementById('orderToast');
+                        break;
+                }
+                
+                if (toastElement) {
+                    const toast = new bootstrap.Toast(toastElement);
+                    toast.show();
+                }
+            }
+            
+            if (urlParams.has('error')) {
+                const error = urlParams.get('error');
+                const errorToast = document.getElementById('errorToast');
+                const errorMessage = document.getElementById('errorToastMessage');
+                
+                switch(error) {
+                    case 'login_failed':
+                        errorMessage.textContent = 'Invalid email or password. Please try again.';
+                        break;
+                    case 'user_exists':
+                        errorMessage.textContent = 'An account with this email or username already exists.';
+                        break;
+                    case 'registration_failed':
+                        errorMessage.textContent = 'Registration failed. Please try again.';
+                        break;
+                    case 'email_not_verified':
+                        errorMessage.textContent = 'Please verify your email address before logging in.';
+                        break;
+                    case 'order_failed':
+                        errorMessage.textContent = 'Order failed. Please try again.';
+                        break;
+                    default:
+                        errorMessage.textContent = 'An error occurred. Please try again.';
+                }
+                
+                const toast = new bootstrap.Toast(errorToast);
+                toast.show();
+            }
 
             // Toggle header collapse on mobile
             if (headerToggler) {
@@ -2223,9 +2740,6 @@ $cart = $_SESSION['cart'];
                 cartIcon.addEventListener('click', openCart);
             }
             if (closeCart) closeCart.addEventListener('click', closeCartModal);
-            if (checkoutBtn) {
-                checkoutBtn.addEventListener('click', checkout);
-            }
 
             // Mobile search toggle
             if (mobileSearchToggle) {
@@ -2392,6 +2906,27 @@ $cart = $_SESSION['cart'];
                 closePreview.addEventListener('click', closePreviewModal);
             }
 
+            if (closePreviewBtn) {
+                closePreviewBtn.addEventListener('click', closePreviewModal);
+            }
+
+            // Registration functionality
+            if (sendVerificationBtn) {
+                sendVerificationBtn.addEventListener('click', sendVerificationCode);
+            }
+
+            if (verifyAndRegisterBtn) {
+                verifyAndRegisterBtn.addEventListener('click', verifyAndRegister);
+            }
+
+            // Checkout form submission
+            if (checkoutForm) {
+                checkoutForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    // Form will be submitted normally to handle checkout
+                });
+            }
+
             // Smooth scrolling for navigation links
             document.querySelectorAll('a[href^="#"]').forEach(anchor => {
                 anchor.addEventListener('click', function (e) {
@@ -2433,6 +2968,7 @@ $cart = $_SESSION['cart'];
         function closeAuthModals() {
             loginModal.classList.remove('active');
             registerModal.classList.remove('active');
+            checkoutModal.classList.remove('active');
         }
         
         // Competition modal functions
@@ -2453,6 +2989,130 @@ $cart = $_SESSION['cart'];
 
         function closePreviewModal() {
             previewModal.classList.remove('active');
+        }
+
+        // Checkout modal functions
+        function showCheckoutModal() {
+            // Populate checkout items
+            checkoutItems.innerHTML = '';
+            let subtotal = 0;
+            
+            cart.forEach(item => {
+                const itemTotal = item.price * item.quantity;
+                subtotal += itemTotal;
+                
+                const itemElement = document.createElement('div');
+                itemElement.className = 'd-flex justify-content-between mb-2';
+                itemElement.innerHTML = `
+                    <span>${item.title} x${item.quantity}</span>
+                    <span>$${itemTotal.toFixed(2)}</span>
+                `;
+                checkoutItems.appendChild(itemElement);
+            });
+            
+            // Calculate totals
+            const format = document.querySelector('input[name="format"]:checked').value;
+            const formatCharge = formatCharges[format];
+            const total = subtotal + formatCharge;
+            
+            checkoutSubtotal.textContent = `$${subtotal.toFixed(2)}`;
+            checkoutFormatCharge.textContent = `$${formatCharge.toFixed(2)}`;
+            checkoutTotal.textContent = `Total: $${total.toFixed(2)}`;
+            
+            checkoutModal.classList.add('active');
+        }
+
+        function selectCheckoutFormat(format) {
+            // Update radio button
+            document.getElementById(`checkout-format-${format}`).checked = true;
+            
+            // Update UI
+            document.querySelectorAll('.format-option').forEach(option => {
+                option.classList.remove('selected');
+            });
+            event.currentTarget.classList.add('selected');
+            
+            // Recalculate totals
+            showCheckoutModal();
+        }
+
+        // Registration functions
+        function sendVerificationCode() {
+            const username = document.getElementById('register-username').value;
+            const email = document.getElementById('register-email').value;
+            const password = document.getElementById('register-password').value;
+            const fullName = document.getElementById('register-fullname').value;
+            
+            if (!username || !email || !password || !fullName) {
+                alert('Please fill in all fields');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('send_verification', 'true');
+            formData.append('username', username);
+            formData.append('email', email);
+            formData.append('password', password);
+            formData.append('full_name', fullName);
+            
+            fetch('register.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    verificationSection.style.display = 'block';
+                    verificationDisplay.innerHTML = data.message;
+                    verificationDisplay.style.display = 'block';
+                    sendVerificationBtn.style.display = 'none';
+                } else {
+                    alert(data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error sending verification code');
+            });
+        }
+
+        function verifyAndRegister() {
+            const verificationCode = document.getElementById('verification-code').value;
+            
+            if (!verificationCode) {
+                alert('Please enter the verification code');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('verify_and_register', 'true');
+            formData.append('verification_code', verificationCode);
+            
+            fetch('register.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success toast
+                    const registerToast = document.getElementById('registerToast');
+                    const toast = new bootstrap.Toast(registerToast);
+                    toast.show();
+                    
+                    // Close modal and refresh page
+                    setTimeout(() => {
+                        closeAuthModals();
+                        window.location.reload();
+                    }, 2000);
+                } else {
+                    alert(data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error during registration');
+            });
         }
 
         // Show category books
@@ -2676,6 +3336,8 @@ $cart = $_SESSION['cart'];
             if (cart.length === 0) {
                 cartItems.innerHTML = '<div class="empty-cart"><p>Your cart is empty</p><p>Browse our collection to add items</p></div>';
                 if (cartTotal) cartTotal.style.display = 'none';
+                // Hide checkout button
+                const checkoutBtn = document.getElementById('checkout-btn');
                 if (checkoutBtn) checkoutBtn.style.display = 'none';
                 return;
             }
@@ -2735,8 +3397,11 @@ $cart = $_SESSION['cart'];
                 cartTotal.textContent = `Total: $${total.toFixed(2)}`;
                 cartTotal.style.display = 'block';
             }
+            
+            // Show checkout button
+            const checkoutBtn = document.getElementById('checkout-btn');
             if (checkoutBtn) {
-                checkoutBtn.style.display = 'block';
+                checkoutBtn.style.display = 'flex';
             }
         }
 
@@ -2796,25 +3461,6 @@ $cart = $_SESSION['cart'];
 
         function closeCartModal() {
             cartModal.classList.remove('active');
-        }
-
-        // Checkout function
-        function checkout() {
-            if (cart.length === 0) {
-                alert('Your cart is empty!');
-                return;
-            }
-            
-            const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            alert(`Proceeding to checkout. Total: $${total.toFixed(2)}`);
-            
-            // In a real application, you would redirect to a checkout page
-            // window.location.href = 'checkout.php';
-            
-            cart = [];
-            updateCartUI();
-            saveCartToServer();
-            closeCartModal();
         }
 
         // Close search results when clicking outside

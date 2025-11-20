@@ -2,7 +2,7 @@
 CREATE DATABASE IF NOT EXISTS ebook_system;
 USE ebook_system;
 
--- Users table
+-- Users table with email verification
 CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
@@ -14,7 +14,10 @@ CREATE TABLE IF NOT EXISTS users (
     membership_type ENUM('free', 'premium') DEFAULT 'free',
     registration_date DATETIME DEFAULT CURRENT_TIMESTAMP,
     is_active BOOLEAN DEFAULT TRUE,
-    role ENUM('user', 'admin') DEFAULT 'user'
+    role ENUM('user', 'admin') DEFAULT 'user',
+    email_verified BOOLEAN DEFAULT FALSE,
+    verification_code VARCHAR(100),
+    verification_expiry DATETIME
 );
 
 -- Categories table
@@ -25,7 +28,7 @@ CREATE TABLE IF NOT EXISTS categories (
     icon VARCHAR(50)
 );
 
--- Books table (removed is_free column)
+-- Books table (simplified - removed ISBN, publication_year, pages, stock_quantity)
 CREATE TABLE IF NOT EXISTS books (
     id INT AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
@@ -37,17 +40,13 @@ CREATE TABLE IF NOT EXISTS books (
     file_path VARCHAR(255),
     cover_image VARCHAR(255),
     subscription_required BOOLEAN DEFAULT FALSE,
-    subscription_years INT DEFAULT 1,
     featured BOOLEAN DEFAULT FALSE,
-    status ENUM('active', 'inactive') DEFAULT 'active',
+    status ENUM('active', 'inactive', 'deleted') DEFAULT 'active',
     created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-    stock_quantity INT DEFAULT 0,
-    pages INT,
-    publication_year YEAR,
-    isbn VARCHAR(20)
+    FOREIGN KEY (category_id) REFERENCES categories(id)
 );
 
--- Orders table
+-- Orders table with shipping charges
 CREATE TABLE IF NOT EXISTS orders (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
@@ -57,7 +56,11 @@ CREATE TABLE IF NOT EXISTS orders (
     format ENUM('pdf', 'hardcopy', 'cd') NOT NULL,
     status ENUM('pending', 'confirmed', 'shipped', 'delivered', 'cancelled') DEFAULT 'pending',
     payment_status ENUM('pending', 'paid', 'failed') DEFAULT 'pending',
-    shipping_address TEXT
+    shipping_address TEXT,
+    customer_name VARCHAR(255),
+    customer_email VARCHAR(255),
+    customer_phone VARCHAR(20),
+    FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
 -- Order items table
@@ -66,7 +69,9 @@ CREATE TABLE IF NOT EXISTS order_items (
     order_id INT NOT NULL,
     book_id INT NOT NULL,
     quantity INT DEFAULT 1,
-    price DECIMAL(10,2) NOT NULL
+    price DECIMAL(10,2) NOT NULL,
+    FOREIGN KEY (order_id) REFERENCES orders(id),
+    FOREIGN KEY (book_id) REFERENCES books(id)
 );
 
 -- Competitions table
@@ -79,7 +84,7 @@ CREATE TABLE IF NOT EXISTS competitions (
     end_date DATETIME NOT NULL,
     rules TEXT,
     prizes TEXT,
-    status ENUM('upcoming', 'active', 'completed') DEFAULT 'upcoming',
+    status ENUM('upcoming', 'active', 'completed', 'deleted') DEFAULT 'upcoming',
     max_submissions INT DEFAULT 100,
     entry_fee DECIMAL(10,2) DEFAULT 0,
     is_active BOOLEAN DEFAULT TRUE
@@ -193,6 +198,7 @@ INSERT INTO dealers (name, address, phone, email, city, is_active) VALUES
 ('Readers Paradise', '456 Oak Avenue, Westside', '(555) 987-6543', 'readers@example.com', 'Los Angeles', 1),
 ('Knowledge Hub', '789 Pine Road, East End', '(555) 456-7890', 'knowledge@example.com', 'Chicago', 1);
 
+
 -- Create admin user
-INSERT INTO users (username, email, password, full_name, role) VALUES 
-('admin', 'admin@ebookemporium.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'System Administrator', 'admin');
+INSERT INTO users (username, email, password, full_name, role, email_verified) VALUES 
+('admin', 'admin@ebookemporium.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'System Administrator', 'admin', 1);
